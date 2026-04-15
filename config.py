@@ -1,0 +1,55 @@
+"""
+Central configuration for the Common Crawl Home/Belonging Extractor.
+"""
+
+import os
+from pathlib import Path
+
+# ── Project Paths ────────────────────────────────────────────────────────────
+PROJECT_ROOT = Path(__file__).parent
+DATA_DIR = PROJECT_ROOT / "data"
+OUTPUT_DIR = DATA_DIR / "output"
+MODELS_DIR = DATA_DIR / "models"
+DB_PATH = DATA_DIR / "progress.db"
+
+# Ensure directories exist
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+# ── Common Crawl Settings ────────────────────────────────────────────────────
+CC_BASE_URL = "https://data.commoncrawl.org/"
+DEFAULT_CRAWL_ID = "CC-MAIN-2026-12"
+
+# ── Matching Settings ────────────────────────────────────────────────────────
+# Minimum cosine similarity score to accept a paragraph as a match
+SEMANTIC_THRESHOLD = 0.35
+
+# Minimum paragraph length in characters (filters out navigation text, short labels)
+MIN_PARAGRAPH_LENGTH = 100
+
+# Maximum paragraph length in characters (filters out extremely long blocks)
+MAX_PARAGRAPH_LENGTH = 5000
+
+# Batch size for sentence-transformer encoding
+ENCODING_BATCH_SIZE = 32
+
+# ── Semantic Model ───────────────────────────────────────────────────────────
+# Multilingual sentence transformer — supports 50+ languages, ~500 MB
+SEMANTIC_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+# ── FastText Language Detection ──────────────────────────────────────────────
+FASTTEXT_MODEL_URL = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
+FASTTEXT_MODEL_PATH = MODELS_DIR / "lid.176.bin"
+
+# Minimum confidence for language detection
+LANG_DETECTION_THRESHOLD = 0.5
+
+# ── Network Settings ─────────────────────────────────────────────────────────
+HTTP_TIMEOUT = 60  # seconds
+HTTP_RETRIES = 3
+HTTP_BACKOFF_FACTOR = 1.0
+
+# ── Processing Settings ─────────────────────────────────────────────────────
+# Number of characters from a paragraph used for language detection
+LANG_DETECT_CHARS = 500
