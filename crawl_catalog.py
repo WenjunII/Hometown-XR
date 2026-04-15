@@ -5,11 +5,20 @@ Two eras of data:
   - Legacy (2008-2012): ARC format, raw HTML, no WET files
   - Modern (2013-present): WARC/WAT/WET format, pre-extracted text
 
-The legacy data is stored under different S3 paths and requires
-HTML-to-text extraction since there are no WET files.
+Modern crawls are auto-discovered from the Common Crawl index API,
+so new crawls are picked up automatically without code changes.
 """
 
+import json
+import logging
 from dataclasses import dataclass
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+# URL that lists all available modern crawls dynamically
+COLLINFO_URL = "https://index.commoncrawl.org/collinfo.json"
 
 
 @dataclass
@@ -23,11 +32,78 @@ class CrawlInfo:
     notes: str = ""
 
 
-# ── Modern Crawls (2013–2026): WARC/WET format ──────────────────────────────
-# These have WET files with pre-extracted text.
-# Listed in reverse chronological order.
-# Source: https://commoncrawl.org/overview (pages 1-3)
-MODERN_CRAWLS = [
+# ── Legacy Crawls (2008-2012): ARC format ────────────────────────────────────
+# These contain raw HTML — text must be extracted from HTML content.
+# Stored under different S3 paths than modern crawls.
+LEGACY_CRAWLS = [
+    CrawlInfo(
+        crawl_id="CC-CRAWL-001",
+        era="legacy",
+        format="arc",
+        base_url="https://data.commoncrawl.org/",
+        paths_file="crawl-001/",
+        notes="2008-2010 crawl, Nutch-based ARC format",
+    ),
+    CrawlInfo(
+        crawl_id="CC-CRAWL-002",
+        era="legacy",
+        format="arc",
+        base_url="https://data.commoncrawl.org/",
+        paths_file="crawl-002/",
+        notes="2009-2010 crawl, Nutch-based ARC format",
+    ),
+    CrawlInfo(
+        crawl_id="CC-2012",
+        era="legacy",
+        format="arc",
+        base_url="https://data.commoncrawl.org/",
+        paths_file="parse-output/",
+        notes="2012 crawl, commoncrawl-crawler ARC format",
+    ),
+]
+
+# Cache for the live crawl list (fetched once per session)
+_modern_crawls_cache: list[str] | None = None
+
+
+def _fetch_modern_crawl_ids() -> list[str]:
+    """
+    Fetch the list of modern crawl IDs from the Common Crawl index API.
+
+    This is a live query — it automatically picks up new crawls
+    as they are published by Common Crawl.
+
+    Returns crawl IDs in reverse chronological order (newest first).
+    """
+    global _modern_crawls_cache
+
+    if _modern_crawls_cache is not None:
+        return _modern_crawls_cache
+
+    logger.info(f"Fetching available crawls from {COLLINFO_URL}")
+    try:
+        response = requests.get(COLLINFO_URL, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        # Each entry has an "id" field like "CC-MAIN-2026-12"
+        crawl_ids = [entry["id"] for entry in data if "id" in entry]
+        logger.info(f"Found {len(crawl_ids)} modern crawls available")
+
+        _modern_crawls_cache = crawl_ids
+        return crawl_ids
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to fetch live crawl list: {e}. "
+            f"Using hardcoded fallback list."
+        )
+        _modern_crawls_cache = _FALLBACK_MODERN_CRAWLS
+        return _FALLBACK_MODERN_CRAWLS
+
+
+# Hardcoded fallback in case the API is unreachable
+_FALLBACK_MODERN_CRAWLS = [
     "CC-MAIN-2026-12", "CC-MAIN-2026-08", "CC-MAIN-2026-04",
     "CC-MAIN-2025-51", "CC-MAIN-2025-47", "CC-MAIN-2025-43",
     "CC-MAIN-2025-38", "CC-MAIN-2025-33", "CC-MAIN-2025-30",
@@ -72,35 +148,10 @@ MODERN_CRAWLS = [
     "CC-MAIN-2013-48", "CC-MAIN-2013-20",
 ]
 
-# ── Legacy Crawls (2008–2012): ARC format ────────────────────────────────────
-# These contain raw HTML — text must be extracted from HTML content.
-# Stored under different S3 paths than modern crawls.
-LEGACY_CRAWLS = [
-    CrawlInfo(
-        crawl_id="CC-CRAWL-001",
-        era="legacy",
-        format="arc",
-        base_url="https://data.commoncrawl.org/",
-        paths_file="crawl-001/",
-        notes="2008-2010 crawl, Nutch-based ARC format",
-    ),
-    CrawlInfo(
-        crawl_id="CC-CRAWL-002",
-        era="legacy",
-        format="arc",
-        base_url="https://data.commoncrawl.org/",
-        paths_file="crawl-002/",
-        notes="2009-2010 crawl, Nutch-based ARC format",
-    ),
-    CrawlInfo(
-        crawl_id="CC-2012",
-        era="legacy",
-        format="arc",
-        base_url="https://data.commoncrawl.org/",
-        paths_file="parse-output/",
-        notes="2012 crawl, commoncrawl-crawler ARC format",
-    ),
-]
+
+def get_modern_crawls() -> list[str]:
+    """Get all modern crawl IDs (newest first). Auto-discovers new crawls."""
+    return _fetch_modern_crawl_ids()
 
 
 def get_crawl_info(crawl_id: str) -> CrawlInfo:
@@ -110,8 +161,9 @@ def get_crawl_info(crawl_id: str) -> CrawlInfo:
         if crawl.crawl_id == crawl_id:
             return crawl
 
-    # Check modern crawls
-    if crawl_id in MODERN_CRAWLS:
+    # Check modern crawls (live from API)
+    modern_ids = get_modern_crawls()
+    if crawl_id in modern_ids:
         return CrawlInfo(
             crawl_id=crawl_id,
             era="modern",
@@ -129,7 +181,7 @@ def get_crawl_info(crawl_id: str) -> CrawlInfo:
 def get_all_crawl_ids() -> list[str]:
     """Get all crawl IDs in chronological order (oldest first)."""
     legacy_ids = [c.crawl_id for c in LEGACY_CRAWLS]
-    modern_ids = list(reversed(MODERN_CRAWLS))  # Reverse to get oldest first
+    modern_ids = list(reversed(get_modern_crawls()))  # Reverse to oldest first
     return legacy_ids + modern_ids
 
 

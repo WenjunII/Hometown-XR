@@ -24,7 +24,7 @@ import sys
 import time
 
 from config import DEFAULT_CRAWL_ID, SEMANTIC_THRESHOLD
-from crawl_catalog import get_crawl_info, get_all_crawl_ids, is_legacy_crawl, MODERN_CRAWLS, LEGACY_CRAWLS
+from crawl_catalog import get_crawl_info, get_all_crawl_ids, is_legacy_crawl, get_modern_crawls, LEGACY_CRAWLS
 from downloader import fetch_file_paths, stream_file
 from processor import extract_paragraphs_from_wet, extract_paragraphs_from_arc
 from matcher import HybridMatcher
@@ -259,19 +259,22 @@ def list_crawls():
     for crawl in LEGACY_CRAWLS:
         print(f"  {crawl.crawl_id:<25} {crawl.notes}")
 
-    print(f"\n  MODERN CRAWLS (2013-2026) - WET format (text)")
+    modern_crawls = get_modern_crawls()
+    print(f"\n  MODERN CRAWLS (2013-present) - WET format (text)")
+    print(f"  (auto-discovered from Common Crawl index API)")
     print(f"  {'-'*55}")
     # Group by year
     current_year = None
-    for crawl_id in reversed(MODERN_CRAWLS):
+    for crawl_id in reversed(modern_crawls):
         year = crawl_id.split("-")[2]
         if year != current_year:
             current_year = year
             print(f"\n  {year}:")
         print(f"    {crawl_id}")
 
-    total = len(LEGACY_CRAWLS) + len(MODERN_CRAWLS)
+    total = len(LEGACY_CRAWLS) + len(modern_crawls)
     print(f"\n  Total: {total} crawls available")
+    print(f"  New crawls are auto-discovered when published by Common Crawl.")
     print(f"  Use: python main.py run --crawl <ID>")
     print(f"  Or:  python main.py run --all\n")
 
