@@ -327,6 +327,9 @@ Yes, but each machine tracks its own progress independently. To avoid duplicate 
 **Q: What if a WET/ARC file fails to download?**
 It's marked as "failed" in the database and skipped. Failed files can be retried by resetting their status in the SQLite database. If an entire crawl's index is unavailable or returns a 404, the application logs a warning and gracefully skips to the next crawl without crashing.
 
+**Q: Do I need AWS credentials?**
+No, you do not need AWS credentials for the 119+ modern WET format datasets. However, because Common Crawl disabled anonymous listing on their legacy S3 buckets, the 3 legacy ARC datasets (2008-2012) require authenticated requests to build their file lists. If you do not have AWS credentials configured, the application will simply log an error (`NoCredentialsError`) and gracefully skip these oldest 3 datasets, allowing you to seamlessly process the modern datasets without needing an AWS account.
+
 ---
 
 ## License

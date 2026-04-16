@@ -15,6 +15,8 @@ import xml.etree.ElementTree as ET
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import boto3
+from botocore.exceptions import NoCredentialsError, ClientError
 
 from config import CC_BASE_URL, HTTP_TIMEOUT, HTTP_RETRIES, HTTP_BACKOFF_FACTOR
 from crawl_catalog import CrawlInfo, is_legacy_crawl
@@ -75,67 +77,45 @@ def _fetch_wet_paths(crawl_info: CrawlInfo) -> list[str]:
 
 def _fetch_arc_paths(crawl_info: CrawlInfo) -> list[str]:
     """
-    List ARC files from a legacy crawl's S3 directory.
+    List ARC files from a legacy crawl's S3 directory using boto3.
 
-    Legacy crawls store data under paths like:
-      s3://commoncrawl/crawl-001/...
-      s3://commoncrawl/crawl-002/...
-      s3://commoncrawl/parse-output/...
-
-    We use the S3 XML listing API to enumerate files.
+    This now requires AWS credentials because Common Crawl disabled
+    anonymous directory listing on their main S3 buckets.
     """
     base_prefix = crawl_info.paths_file
     logger.info(
         f"Listing ARC files for legacy crawl {crawl_info.crawl_id} "
-        f"(prefix: {base_prefix})"
+        f"(prefix: {base_prefix}) using AWS credentials"
     )
 
     arc_paths = []
-    s3_base = "https://commoncrawl.s3.amazonaws.com/"
-    marker = ""
 
-    while True:
-        params = {
-            "prefix": base_prefix,
-            "max-keys": "1000",
-        }
-        if marker:
-            params["marker"] = marker
+    try:
+        s3 = boto3.client('s3')
+        paginator = s3.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket='commoncrawl', Prefix=base_prefix)
 
-        try:
-            response = _session.get(s3_base, params=params, timeout=HTTP_TIMEOUT)
-            response.raise_for_status()
-        except Exception as e:
-            logger.warning(f"Failed to list S3 directory: {e}")
-            break
-
-        # Parse XML listing
-        try:
-            root = ET.fromstring(response.text)
-            # Handle S3's XML namespace
-            ns = ""
-            if root.tag.startswith("{"):
-                ns = root.tag.split("}")[0] + "}"
-
-            keys = root.findall(f".//{ns}Key")
-            if not keys:
-                break
-
-            for key_elem in keys:
-                key = key_elem.text
+        for page in pages:
+            if 'Contents' not in page:
+                continue
+            for obj in page['Contents']:
+                key = obj['Key']
                 if key and (key.endswith(".arc.gz") or key.endswith(".arc")):
                     arc_paths.append(key)
 
-            # Check if there are more results
-            is_truncated = root.find(f"{ns}IsTruncated")
-            if is_truncated is not None and is_truncated.text == "true":
-                marker = keys[-1].text
-            else:
-                break
-
-        except ET.ParseError as e:
-            logger.error(f"Failed to parse S3 listing XML: {e}")
-            break
+    except NoCredentialsError:
+        logger.error(
+            "AWS credentials not found. You must set your AWS credentials "
+            "(e.g., via 'aws configure' or AWS_ACCESS_KEY_ID env vars) "
+            "to list legacy ARC path files from Common Crawl's S3 bucket."
+        )
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'AccessDenied':
+            logger.error("Access Denied to S3. Ensure your AWS IAM user has s3:ListBucket permissions for 'commoncrawl'.")
+        else:
+            logger.error(f"Failed to list S3 directory: {e}")
+    except Exception as e:
+         logger.error(f"Unexpected error listing S3 for legacy crawl: {e}")
 
     logger.info(f"Found {len(arc_paths)} ARC files for {crawl_info.crawl_id}")
     return arc_paths
