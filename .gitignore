@@ -1,5 +1,5 @@
-# Data files (models, output, database)
-data/
+# Data files (models exceed GitHub limits, but sync DB and output)
+data/models/
 
 # Python
 __pycache__/

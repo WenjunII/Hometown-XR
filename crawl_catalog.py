@@ -86,8 +86,14 @@ def _fetch_modern_crawl_ids() -> list[str]:
         response.raise_for_status()
         data = response.json()
 
+        # Filter out legacy ARC file indexes that don't have WET files
+        legacy_indexes = {"CC-MAIN-2012", "CC-MAIN-2009-2010", "CC-MAIN-2008-2009"}
+        
         # Each entry has an "id" field like "CC-MAIN-2026-12"
-        crawl_ids = [entry["id"] for entry in data if "id" in entry]
+        crawl_ids = [
+            entry["id"] for entry in data 
+            if "id" in entry and entry["id"] not in legacy_indexes
+        ]
         logger.info(f"Found {len(crawl_ids)} modern crawls available")
 
         _modern_crawls_cache = crawl_ids

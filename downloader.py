@@ -58,8 +58,12 @@ def _fetch_wet_paths(crawl_info: CrawlInfo) -> list[str]:
     url = f"{crawl_info.base_url}{crawl_info.paths_file}"
     logger.info(f"Fetching WET file list from {url}")
 
-    response = _session.get(url, timeout=HTTP_TIMEOUT)
-    response.raise_for_status()
+    try:
+        response = _session.get(url, timeout=HTTP_TIMEOUT)
+        response.raise_for_status()
+    except Exception as e:
+        logger.warning(f"Failed to fetch WET file list from {url}: {e}")
+        return []
 
     decompressed = gzip.decompress(response.content)
     paths = decompressed.decode("utf-8").strip().split("\n")

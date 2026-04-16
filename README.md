@@ -28,12 +28,14 @@ Both models are downloaded automatically on first run.
 
 ## Dataset Coverage
 
-Supports **all 122 Common Crawl datasets** from 2008 to present:
+Supports **all 122+ Common Crawl datasets** from 2008 to present:
 
 | Era | Years | Format | Files Available |
 |-----|-------|--------|-----------------|
 | Legacy | 2008–2012 | ARC (raw HTML → text extraction) | 3 crawls |
-| Modern | 2013–2026 | WET (pre-extracted text) | 119 crawls |
+| Modern | 2013–present | WET (pre-extracted text) | 119+ crawls |
+
+✨ **Auto-Discovery:** For modern crawls, the application automatically queries the Common Crawl Index API on startup. When Common Crawl publishes a new dataset, the application will pick it up automatically—no code updates required.
 
 ---
 
@@ -179,7 +181,17 @@ Each line in a `.jsonl.gz` file is a JSON object:
 | `semantic_score` | Cosine similarity to best concept anchor (0–1) |
 | `concept_match` | The concept anchor sentence it matched |
 
-### Reading Output
+### Reading Output (Markdown Export)
+
+While files are stored as compressed JSONL to save space, you can easily export them to beautiful, readable Markdown files:
+
+```bash
+python export_md.py
+```
+
+This will convert all `.jsonl.gz` chunks into consolidated Markdown files in `data/exports/` (e.g., `matches_en.md`, `matches_de.md`), sorted by semantic score.
+
+Alternatively, you can read the JSONL files directly in Python:
 
 ```python
 import gzip
@@ -193,7 +205,7 @@ with gzip.open("data/output/en/some_file.jsonl.gz", "rt", encoding="utf-8") as f
 
 ### Review Helper
 
-A built-in review script shows top matches sorted by semantic score:
+A built-in review script shows top matches in your terminal:
 
 ```bash
 python review.py
@@ -216,13 +228,15 @@ cc-home-extractor/
 ├── language_detector.py   ← FastText wrapper (176 languages)
 ├── progress.py            ← SQLite-based resumable progress tracker
 ├── output.py              ← JSONL writer (gzip, organized by language)
+├── export_md.py           ← Markdown exporter for extracted records
 ├── review.py              ← Helper script to inspect output quality
 ├── requirements.txt       ← Python dependencies
-├── .gitignore             ← Excludes data/ from version control
-└── data/                  ← Created at runtime (not in git)
-    ├── progress.db        ← SQLite state database
-    ├── models/            ← Downloaded ML models
-    └── output/            ← Extracted results (JSONL by language)
+├── .gitignore             ← Excludes data/models/ from version control
+└── data/                  ← Application data
+    ├── progress.db        ← SQLite state database (synced to Git)
+    ├── models/            ← Downloaded ML models (excluded from Git due to size)
+    ├── exports/           ← Markdown exports (synced to Git)
+    └── output/            ← Extracted results (synced to Git)
 ```
 
 ---
@@ -311,7 +325,7 @@ No. Everything runs locally. The only network traffic is downloading WET/ARC fil
 Yes, but each machine tracks its own progress independently. To avoid duplicate work, assign different crawl IDs to different machines.
 
 **Q: What if a WET/ARC file fails to download?**
-It's marked as "failed" in the database and skipped. Failed files can be retried by resetting their status in the SQLite database.
+It's marked as "failed" in the database and skipped. Failed files can be retried by resetting their status in the SQLite database. If an entire crawl's index is unavailable or returns a 404, the application logs a warning and gracefully skips to the next crawl without crashing.
 
 ---
 
