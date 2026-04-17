@@ -26,6 +26,16 @@ Both models are downloaded automatically on first run.
 
 ---
 
+## 💾 Pre-extracted Data Available!
+
+Because the full Common Crawl is massive, we have already run this extractor and synced the **ready-to-use output** directly to this repository! 
+
+If you just want to read the extracted multilingual paragraphs, **you do not need to run any code or download models.** 
+- Browse the processed JSONL datasets in `data/output/`
+- Read the beautifully exported Markdown files in `data/exports/`
+
+---
+
 ## Dataset Coverage
 
 Supports **all 122+ Common Crawl datasets** from 2008 to present:
