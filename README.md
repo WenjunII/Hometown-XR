@@ -295,6 +295,44 @@ CONCEPT_ANCHORS = [
 
 The sentence-transformer will automatically use these as comparison targets. Because the model is multilingual, English anchor sentences match content in any supported language.
 
+### Current Concept Anchors
+
+The application is pre-configured with 20 anchor sentences organized into 7 thematic categories. These map conceptually to content in over 50 languages:
+
+**Hometown & Place of Origin**
+1. "My hometown is the place where I was born and raised. It shaped who I am and gave me my earliest memories."
+2. "I grew up in a small village surrounded by nature. The streets and houses of my hometown are etched in my memory."
+3. "Returning to the town where I spent my childhood fills me with a deep sense of connection and nostalgia."
+
+**Childhood & Growing Up**
+4. "Childhood memories of playing in the fields near our family home stay with me wherever I go."
+5. "Growing up in my parents' house, I learned the values and traditions that would define my life."
+6. "The experiences of my early years and upbringing in my native community formed my identity."
+
+**Belonging & Community**
+7. "The feeling of belonging to a community and knowing that you have a place where you are accepted."
+8. "Home is not just a building — it is the sense of belonging, comfort, and safety that comes from being among your own people."
+9. "Finding where you truly belong, the place and community that feels like home to your soul."
+
+**Roots & Heritage**
+10. "My roots run deep in this land. My ancestors lived here for generations, and their stories are part of who I am."
+11. "Understanding your cultural heritage and ancestral origins gives you a foundation for your identity."
+12. "The traditions passed down from our grandparents connect us to our roots and give meaning to where we come from."
+
+**Nostalgia & Homecoming**
+13. "After years of living abroad, I feel a deep longing for my homeland and the simple life I once knew."
+14. "Homesickness is a powerful emotion — the ache of missing the familiar places, sounds, and smells of home."
+15. "Coming back to the place where I grew up after many years brought tears to my eyes and warmth to my heart."
+
+**Diaspora & Displacement**
+16. "As an immigrant, I carry my homeland within me. My cultural identity bridges two worlds."
+17. "The diaspora experience means being caught between two cultures, longing for a home that may no longer exist as you remember it."
+18. "Being uprooted from your native land and having to rebuild a sense of home in a foreign country."
+
+**Concept of Home**
+19. "Home is more than a physical place. It is where the heart is, where you feel safe, loved, and truly yourself."
+20. "The meaning of home changes as we grow older, but the longing for a place to call our own never fades."
+
 ### Tuning the Threshold
 
 - **`0.30`** — More permissive. Catches loosely related content. Good for exploration.
