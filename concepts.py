@@ -6,75 +6,78 @@ sentence-transformer model maps them to a shared embedding space, so an
 English anchor sentence will match semantically similar content written
 in any of 50+ supported languages.
 
-Anchors should be descriptive, natural-sounding sentences. They are encoded
-once at startup and compared against candidate paragraphs.
+Anchors are written in a PERSONAL NARRATIVE voice — they read like someone
+telling their own story. This biases the semantic model toward matching
+actual personal narratives rather than encyclopedic or commercial text.
+
+Anchors are encoded once at startup and compared against candidate paragraphs.
 """
 
 CONCEPT_ANCHORS = [
     # ── Hometown & Place of Origin ───────────────────────────────────────
-    "My hometown is the place where I was born and raised. "
-    "It shaped who I am and gave me my earliest memories.",
+    "I was born and raised in a small town. Every time I go back, "
+    "I recognize the streets and houses from my childhood.",
 
-    "I grew up in a small village surrounded by nature. "
-    "The streets and houses of my hometown are etched in my memory.",
+    "I grew up in a village surrounded by fields and forests. "
+    "The landscape of my hometown is etched into my memory.",
 
-    "Returning to the town where I spent my childhood fills me "
-    "with a deep sense of connection and nostalgia.",
+    "When I returned to the town where I spent my childhood, "
+    "I felt overwhelming emotion and a deep sense of connection.",
 
     # ── Childhood & Growing Up ───────────────────────────────────────────
-    "Childhood memories of playing in the fields near our family home "
-    "stay with me wherever I go.",
+    "My earliest memories are of playing outside near our family home. "
+    "Those carefree days shaped who I became.",
 
     "Growing up in my parents' house, I learned the values and "
-    "traditions that would define my life.",
+    "traditions that would stay with me for the rest of my life.",
 
-    "The experiences of my early years and upbringing in my "
-    "native community formed my identity.",
+    "I remember my childhood vividly — the sounds, the smells, "
+    "the rhythm of daily life in the neighborhood where I was raised.",
 
     # ── Belonging & Community ────────────────────────────────────────────
-    "The feeling of belonging to a community and knowing that "
-    "you have a place where you are accepted.",
+    "I finally found a community where I truly belong. "
+    "For the first time in my life, I feel accepted and at home.",
 
-    "Home is not just a building — it is the sense of belonging, "
-    "comfort, and safety that comes from being among your own people.",
+    "Home for me is not just a building — it is the feeling of being "
+    "among my own people, where I am understood and loved.",
 
-    "Finding where you truly belong, the place and community "
-    "that feels like home to your soul.",
+    "After years of searching, I realized that belonging is not about "
+    "a place but about the people who make me feel like myself.",
 
     # ── Roots & Heritage ─────────────────────────────────────────────────
-    "My roots run deep in this land. My ancestors lived here "
-    "for generations, and their stories are part of who I am.",
+    "When I visit the village where my grandparents grew up, "
+    "I feel a deep connection to my family's history and traditions.",
 
-    "Understanding your cultural heritage and ancestral origins "
-    "gives you a foundation for your identity.",
+    "My grandmother used to tell me stories about our ancestors. "
+    "Those stories made me proud of where my family comes from.",
 
-    "The traditions passed down from our grandparents connect us "
-    "to our roots and give meaning to where we come from.",
+    "I decided to trace my family's roots back to the old country. "
+    "Discovering my heritage gave me a new sense of identity.",
 
     # ── Nostalgia & Homecoming ───────────────────────────────────────────
-    "After years of living abroad, I feel a deep longing for "
-    "my homeland and the simple life I once knew.",
+    "After living abroad for many years, I ache with longing for "
+    "my homeland and the simple life I once knew there.",
 
-    "Homesickness is a powerful emotion — the ache of missing "
-    "the familiar places, sounds, and smells of home.",
+    "I miss my hometown terribly — the familiar faces, the food, "
+    "the sound of my mother tongue spoken on every corner.",
 
-    "Coming back to the place where I grew up after many years "
-    "brought tears to my eyes and warmth to my heart.",
+    "When I finally came back to the place where I grew up after "
+    "so many years away, tears streamed down my face.",
 
     # ── Diaspora & Displacement ──────────────────────────────────────────
-    "As an immigrant, I carry my homeland within me. "
-    "My cultural identity bridges two worlds.",
+    "As an immigrant, I carry two worlds inside me. My heart is "
+    "split between the country I left and the one I now call home.",
 
-    "The diaspora experience means being caught between two cultures, "
-    "longing for a home that may no longer exist as you remember it.",
+    "Being part of the diaspora means I am caught between cultures, "
+    "always longing for a home that may no longer exist as I remember.",
 
-    "Being uprooted from your native land and having to rebuild "
-    "a sense of home in a foreign country.",
+    "My family was forced to leave our homeland, and starting over "
+    "in a new country was the hardest thing I have ever done.",
 
     # ── Concept of Home ──────────────────────────────────────────────────
-    "Home is more than a physical place. It is where the heart is, "
-    "where you feel safe, loved, and truly yourself.",
+    "Home for me is where I feel safe and truly myself. It is the "
+    "place I return to in my mind when the world feels too big.",
 
-    "The meaning of home changes as we grow older, but the longing "
-    "for a place to call our own never fades.",
+    "I have moved many times in my life, but the meaning of home — "
+    "that deep yearning for a place to call my own — never fades.",
 ]

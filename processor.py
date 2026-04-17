@@ -25,6 +25,7 @@ class Paragraph:
     url: str
     warc_date: str
     text: str
+    crawl_id: str = ""
 
 
 # ── HTML to Text Extraction ──────────────────────────────────────────────────
@@ -77,7 +78,7 @@ def _html_to_text(html_content: str) -> str:
 
 # ── Paragraph Extraction ─────────────────────────────────────────────────────
 
-def extract_paragraphs_from_wet(stream) -> tuple[int, list[Paragraph]]:
+def extract_paragraphs_from_wet(stream, crawl_id: str = "") -> tuple[int, list[Paragraph]]:
     """
     Parse a WET file stream (modern crawls, 2013+).
     WET records contain pre-extracted plain text.
@@ -104,7 +105,7 @@ def extract_paragraphs_from_wet(stream) -> tuple[int, list[Paragraph]]:
                 continue
 
             # Split into paragraphs by double newline
-            _extract_paras(content, url, warc_date, paragraphs)
+            _extract_paras(content, url, warc_date, paragraphs, crawl_id)
 
     except Exception as e:
         logger.error(f"Error processing WET stream: {e}")
@@ -112,7 +113,7 @@ def extract_paragraphs_from_wet(stream) -> tuple[int, list[Paragraph]]:
     return records_processed, paragraphs
 
 
-def extract_paragraphs_from_arc(stream) -> tuple[int, list[Paragraph]]:
+def extract_paragraphs_from_arc(stream, crawl_id: str = "") -> tuple[int, list[Paragraph]]:
     """
     Parse an ARC file stream (legacy crawls, 2008-2012).
     ARC records contain raw HTML — text is extracted on the fly.
@@ -158,7 +159,7 @@ def extract_paragraphs_from_arc(stream) -> tuple[int, list[Paragraph]]:
                 continue
 
             # Split into paragraphs
-            _extract_paras(text_content, url, warc_date, paragraphs)
+            _extract_paras(text_content, url, warc_date, paragraphs, crawl_id)
 
     except Exception as e:
         logger.error(f"Error processing ARC stream: {e}")
@@ -167,7 +168,8 @@ def extract_paragraphs_from_arc(stream) -> tuple[int, list[Paragraph]]:
 
 
 def _extract_paras(
-    content: str, url: str, warc_date: str, paragraphs: list[Paragraph]
+    content: str, url: str, warc_date: str, paragraphs: list[Paragraph],
+    crawl_id: str = "",
 ):
     """Split text content into paragraphs and apply length filters."""
     raw_paragraphs = content.split("\n\n")
@@ -184,4 +186,5 @@ def _extract_paras(
             url=url,
             warc_date=warc_date,
             text=text,
+            crawl_id=crawl_id,
         ))

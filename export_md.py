@@ -70,13 +70,15 @@ def export_to_markdown(output_dir="data/output", export_dir="data/exports"):
                 concept = r.get("concept_match", "N/A")
                 url = r.get("url", "#")
                 date = r.get("warc_date", "Unknown date")
+                crawl = r.get("crawl_id", "Unknown")
                 text = r.get("paragraph", "")
                 
                 f.write(f"### {i}. Match Score: {score:.3f}\n")
                 f.write(f"- **Keywords:** `{kw}`\n")
                 f.write(f"- **Concept Anchor:** '{concept}'\n")
                 f.write(f"- **Source:** [{url}]({url})\n")
-                f.write(f"- **Capture Date:** {date}\n\n")
+                f.write(f"- **Capture Date:** {date}\n")
+                f.write(f"- **Crawl Dataset:** `{crawl}`\n\n")
                 
                 # Format paragraph as blockquote
                 blockquote = "\n".join(f"> {line}" for line in text.split("\n"))

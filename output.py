@@ -70,6 +70,7 @@ class OutputWriter:
         by_language: dict[str, list[dict]] = {}
         for match, (lang, lang_conf) in zip(matches, languages):
             record = {
+                "crawl_id": match.crawl_id,
                 "url": match.url,
                 "warc_date": match.warc_date,
                 "language": lang,

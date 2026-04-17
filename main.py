@@ -124,9 +124,9 @@ def process_crawl(
             stream = stream_file(file_path, crawl_info)
 
             if is_legacy:
-                records_processed, paragraphs = extract_paragraphs_from_arc(stream)
+                records_processed, paragraphs = extract_paragraphs_from_arc(stream, crawl_id)
             else:
-                records_processed, paragraphs = extract_paragraphs_from_wet(stream)
+                records_processed, paragraphs = extract_paragraphs_from_wet(stream, crawl_id)
 
             logger.info(
                 f"   Parsed {records_processed} records -> "

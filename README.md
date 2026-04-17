@@ -5,15 +5,16 @@ A local, resumable Python application that extracts multilingual paragraphs abou
 ## How It Works
 
 ```
-WET/ARC File → Split into Paragraphs → Keyword Pre-Filter → Semantic Scoring → Language Detection → JSONL Output
-                                         (441 keywords,        (multilingual       (176 languages)    (by language)
+WET/ARC File → Split into Paragraphs → Keyword Pre-Filter → Semantic Scoring → Narrative Filter → Language Detection → JSONL Output
+                                         (441 keywords,        (multilingual    (18+ languages)   (176 languages)      (by language)
                                           18 languages)         MiniLM model)
 ```
 
-**Two-stage matching** keeps processing fast and accurate:
+**Three-stage matching** keeps processing fast and highly accurate:
 
 1. **Keyword Pre-Filter** — Scans each paragraph for any of 441 multilingual keywords covering home, belonging, roots, childhood, nostalgia, diaspora, and exile. Eliminates ~99% of irrelevant content instantly.
-2. **Semantic Similarity Scoring** — Encodes remaining candidates with a multilingual sentence-transformer and compares them against 20 concept anchor sentences via cosine similarity. Filters out false positives like "home page" or "home button."
+2. **Semantic Similarity Scoring** — Encodes remaining candidates with a multilingual sentence-transformer and compares them against 20 personal narrative concept anchors via cosine similarity. Filters out false positives like "home page" or "home button."
+3. **Narrative Voice Filter** — (New) Checks passing paragraphs for first-person pronouns ("I", "my", "我", "yo") and storytelling indicators ("I remember", "when I grew up") in 18+ languages. Eliminates encyclopedic descriptions, genealogy databases, and commercial copy, leaving only true personal stories.
 
 No LLM is used. The two ML models are small and run locally on CPU:
 
@@ -169,6 +170,7 @@ Each line in a `.jsonl.gz` file is a JSON object:
 
 ```json
 {
+  "crawl_id": "CC-MAIN-2026-12",
   "url": "https://de.example.com/mein-leben",
   "warc_date": "2026-03-15T10:23:45Z",
   "language": "de",
@@ -176,12 +178,13 @@ Each line in a `.jsonl.gz` file is a JSON object:
   "paragraph": "Meine Heimat ist ein kleines Dorf in Bayern. Dort bin ich aufgewachsen und dort habe ich meine Kindheit verbracht. Die Erinnerungen an die Wiesen und Wälder sind mir bis heute geblieben.",
   "matched_keywords": ["Heimat", "Kindheit"],
   "semantic_score": 0.78,
-  "concept_match": "Childhood memories of the place I call home"
+  "concept_match": "I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory."
 }
 ```
 
 | Field | Description |
 |-------|-------------|
+| `crawl_id` | Provenance: Which Common Crawl dataset it came from |
 | `url` | Source web page URL |
 | `warc_date` | When Common Crawl captured the page |
 | `language` | Detected language (ISO 639-1 code) |
@@ -234,7 +237,7 @@ cc-home-extractor/
 ├── concepts.py            ← 20 semantic anchor sentences
 ├── downloader.py          ← HTTP streaming for WET/ARC files
 ├── processor.py           ← WET text parser + ARC HTML-to-text extractor
-├── matcher.py             ← Two-stage hybrid matcher (keyword + semantic)
+├── matcher.py             ← Three-stage hybrid matcher (keyword + semantic + narrative)
 ├── language_detector.py   ← FastText wrapper (176 languages)
 ├── progress.py            ← SQLite-based resumable progress tracker
 ├── output.py              ← JSONL writer (gzip, organized by language)
@@ -297,41 +300,41 @@ The sentence-transformer will automatically use these as comparison targets. Bec
 
 ### Current Concept Anchors
 
-The application is pre-configured with 20 anchor sentences organized into 7 thematic categories. These map conceptually to content in over 50 languages:
+The application is pre-configured with 20 anchor sentences organized into 7 thematic categories. These are written in a **first-person narrative voice** to train the AI to prefer personal stories over dictionary definitions or marketing copy:
 
 **Hometown & Place of Origin**
-1. "My hometown is the place where I was born and raised. It shaped who I am and gave me my earliest memories."
-2. "I grew up in a small village surrounded by nature. The streets and houses of my hometown are etched in my memory."
-3. "Returning to the town where I spent my childhood fills me with a deep sense of connection and nostalgia."
+1. "I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood."
+2. "I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory."
+3. "When I returned to the town where I spent my childhood, I felt overwhelming emotion and a deep sense of connection."
 
 **Childhood & Growing Up**
-4. "Childhood memories of playing in the fields near our family home stay with me wherever I go."
-5. "Growing up in my parents' house, I learned the values and traditions that would define my life."
-6. "The experiences of my early years and upbringing in my native community formed my identity."
+4. "My earliest memories are of playing outside near our family home. Those carefree days shaped who I became."
+5. "Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life."
+6. "I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised."
 
 **Belonging & Community**
-7. "The feeling of belonging to a community and knowing that you have a place where you are accepted."
-8. "Home is not just a building — it is the sense of belonging, comfort, and safety that comes from being among your own people."
-9. "Finding where you truly belong, the place and community that feels like home to your soul."
+7. "I finally found a community where I truly belong. For the first time in my life, I feel accepted and at home."
+8. "Home for me is not just a building — it is the feeling of being among my own people, where I am understood and loved."
+9. "After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself."
 
 **Roots & Heritage**
-10. "My roots run deep in this land. My ancestors lived here for generations, and their stories are part of who I am."
-11. "Understanding your cultural heritage and ancestral origins gives you a foundation for your identity."
-12. "The traditions passed down from our grandparents connect us to our roots and give meaning to where we come from."
+10. "When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions."
+11. "My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from."
+12. "I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity."
 
 **Nostalgia & Homecoming**
-13. "After years of living abroad, I feel a deep longing for my homeland and the simple life I once knew."
-14. "Homesickness is a powerful emotion — the ache of missing the familiar places, sounds, and smells of home."
-15. "Coming back to the place where I grew up after many years brought tears to my eyes and warmth to my heart."
+13. "After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there."
+14. "I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner."
+15. "When I finally came back to the place where I grew up after so many years away, tears streamed down my face."
 
 **Diaspora & Displacement**
-16. "As an immigrant, I carry my homeland within me. My cultural identity bridges two worlds."
-17. "The diaspora experience means being caught between two cultures, longing for a home that may no longer exist as you remember it."
-18. "Being uprooted from your native land and having to rebuild a sense of home in a foreign country."
+16. "As an immigrant, I carry two worlds inside me. My heart is split between the country I left and the one I now call home."
+17. "Being part of the diaspora means I am caught between cultures, always longing for a home that may no longer exist as I remember."
+18. "My family was forced to leave our homeland, and starting over in a new country was the hardest thing I have ever done."
 
 **Concept of Home**
-19. "Home is more than a physical place. It is where the heart is, where you feel safe, loved, and truly yourself."
-20. "The meaning of home changes as we grow older, but the longing for a place to call our own never fades."
+19. "Home for me is where I feel safe and truly myself. It is the place I return to in my mind when the world feels too big."
+20. "I have moved many times in my life, but the meaning of home — that deep yearning for a place to call my own — never fades."
 
 ### Tuning the Threshold
 

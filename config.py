@@ -23,7 +23,7 @@ DEFAULT_CRAWL_ID = "CC-MAIN-2026-12"
 
 # ── Matching Settings ────────────────────────────────────────────────────────
 # Minimum cosine similarity score to accept a paragraph as a match
-SEMANTIC_THRESHOLD = 0.35
+SEMANTIC_THRESHOLD = 0.42
 
 # Minimum paragraph length in characters (filters out navigation text, short labels)
 MIN_PARAGRAPH_LENGTH = 100
@@ -33,6 +33,14 @@ MAX_PARAGRAPH_LENGTH = 5000
 
 # Batch size for sentence-transformer encoding
 ENCODING_BATCH_SIZE = 32
+
+# ── Narrative Voice Filter ───────────────────────────────────────────────────
+# Enable the narrative voice filter (Stage 3) to prefer personal stories
+NARRATIVE_FILTER_ENABLED = True
+
+# Minimum number of first-person / narrative indicators required
+# in a paragraph to pass the narrative filter
+MIN_NARRATIVE_INDICATORS = 2
 
 # ── Semantic Model ───────────────────────────────────────────────────────────
 # Multilingual sentence transformer — supports 50+ languages, ~500 MB
