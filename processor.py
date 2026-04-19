@@ -78,13 +78,16 @@ def _html_to_text(html_content: str) -> str:
 
 # ── Paragraph Extraction ─────────────────────────────────────────────────────
 
-def extract_paragraphs_from_wet(stream, crawl_id: str = "") -> tuple[int, list[Paragraph]]:
+def extract_paragraphs_from_wet(
+    stream, crawl_id: str = "", keyword_matcher=None
+) -> tuple[int, list[Paragraph]]:
     """
     Parse a WET file stream (modern crawls, 2013+).
     WET records contain pre-extracted plain text.
+    
+    Returns a generator yielding (Paragraph, matched_keywords).
     """
     records_processed = 0
-    paragraphs = []
 
     try:
         for record in ArchiveIterator(stream):
@@ -104,22 +107,24 @@ def extract_paragraphs_from_wet(stream, crawl_id: str = "") -> tuple[int, list[P
             if not content.strip():
                 continue
 
-            # Split into paragraphs by double newline
-            _extract_paras(content, url, warc_date, paragraphs, crawl_id)
+            # Split into paragraphs and yield those that pass keyword filter
+            for para, keywords in _extract_paras(content, url, warc_date, crawl_id, keyword_matcher):
+                yield para, keywords, records_processed
 
     except Exception as e:
         logger.error(f"Error processing WET stream: {e}")
 
-    return records_processed, paragraphs
 
-
-def extract_paragraphs_from_arc(stream, crawl_id: str = "") -> tuple[int, list[Paragraph]]:
+def extract_paragraphs_from_arc(
+    stream, crawl_id: str = "", keyword_matcher=None
+) -> tuple[int, list[Paragraph]]:
     """
     Parse an ARC file stream (legacy crawls, 2008-2012).
     ARC records contain raw HTML — text is extracted on the fly.
+    
+    Returns a generator yielding (Paragraph, matched_keywords, records_processed).
     """
     records_processed = 0
-    paragraphs = []
 
     try:
         for record in ArchiveIterator(stream, arc2warc=True):
@@ -158,20 +163,22 @@ def extract_paragraphs_from_arc(stream, crawl_id: str = "") -> tuple[int, list[P
             if not text_content.strip():
                 continue
 
-            # Split into paragraphs
-            _extract_paras(text_content, url, warc_date, paragraphs, crawl_id)
+            # Split into paragraphs and yield those that pass keyword filter
+            for para, keywords in _extract_paras(text_content, url, warc_date, crawl_id, keyword_matcher):
+                yield para, keywords, records_processed
 
     except Exception as e:
         logger.error(f"Error processing ARC stream: {e}")
 
-    return records_processed, paragraphs
-
 
 def _extract_paras(
-    content: str, url: str, warc_date: str, paragraphs: list[Paragraph],
-    crawl_id: str = "",
+    content: str, url: str, warc_date: str,
+    crawl_id: str = "", keyword_matcher=None,
 ):
-    """Split text content into paragraphs and apply length filters."""
+    """
+    Split text content into paragraphs and apply length filters.
+    If keyword_matcher is provided, only yields paragraphs that contain keywords.
+    """
     raw_paragraphs = content.split("\n\n")
 
     for raw_para in raw_paragraphs:
@@ -182,9 +189,16 @@ def _extract_paras(
         if len(text) > MAX_PARAGRAPH_LENGTH:
             continue
 
-        paragraphs.append(Paragraph(
+        # Stage 1 keyword filter (optional but recommended for streaming efficiency)
+        kw_matches = []
+        if keyword_matcher:
+            kw_matches = keyword_matcher.find_matches(text)
+            if not kw_matches:
+                continue
+
+        yield Paragraph(
             url=url,
             warc_date=warc_date,
             text=text,
             crawl_id=crawl_id,
-        ))
+        ), kw_matches

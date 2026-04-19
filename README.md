@@ -355,17 +355,18 @@ Recommended workflow: run with `--limit 10`, inspect output with `python review.
 
 ## Performance
 
-| Metric | Estimate (RTX 3080 + 20-core CPU) |
-|--------|----------|
-| **Startup Time (Task Prep)** | **Near-instant** (via batched DB transactions) |
-| Time per WET file (Parallel) | ~2–5 seconds |
-| Time per ARC file (Parallel) | ~10–20 seconds |
-| Total Throughput | ~15,000–30,000 pages/minute |
-| Files per modern crawl | ~72,000–100,000 |
-| Match rate | ~5–10 matches per file |
-| Disk space | ~5–15 MB per 1,000 files |
+- **Streaming Matcher Pipeline**: Processes paragraphs as they are read from the network, providing near-instant feedback and low memory overhead.
+- **Parallel GPU Acceleration**: Distributes file processing across 20+ workers for massive throughput.
+- **Three-Stage Filtering**: Combines fast keyword pre-filtering (Stage 1), deep semantic matching (Stage 2), and narrative voice detection (Stage 3).
 
-> **Tip:** The application optimally handles large crawls with 30,000+ files by preparing tasks in batches, ensuring no multi-minute delays at startup.
+| Metric | Estimate (RTX 3080/4080 + 20 Workers) |
+|--------|----------|
+| **Matching Startup** | **Near-instant** (via Streaming + Batched DB) |
+| **Throughput** | ~20,000–40,000 pages/minute |
+| **VRAM Usage** | ~6–10 GB (12+ workers) |
+| **RAM Usage** | Stable (via Keyword Pre-filtering) |
+
+> **Requirement:** Use `numpy<2.0.0` to ensure compatibility with `sentence-transformers`.
 
 ---
 

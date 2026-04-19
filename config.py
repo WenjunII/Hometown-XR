@@ -73,6 +73,7 @@ else:
     DEVICE = "cpu"
 
 # Multiprocessing settings
-MAX_WORKERS = os.cpu_count() or 4
+# 20 workers optimized for high-end GPUs (RTX 3080 Ti / 5090) and the streaming pipeline
+MAX_WORKERS = 20
 # Max number of paragraphs to send to matcher in one go (prevents memory spikes)
 MAX_PARAGRAPHS_PER_BATCH = 5000

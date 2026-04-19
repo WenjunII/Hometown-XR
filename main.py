@@ -26,7 +26,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Manager
 
 from config import DEFAULT_CRAWL_ID, SEMANTIC_THRESHOLD, MAX_WORKERS, MAX_PARAGRAPHS_PER_BATCH
-from crawl_catalog import get_crawl_info, get_all_crawl_ids, is_legacy_crawl, get_modern_crawls, LEGACY_CRAWLS
+from crawl_catalog import CrawlInfo, get_crawl_info, get_all_crawl_ids, is_legacy_crawl, get_modern_crawls, LEGACY_CRAWLS
 from downloader import fetch_file_paths, stream_file
 from processor import extract_paragraphs_from_wet, extract_paragraphs_from_arc
 from progress import ProgressTracker
@@ -48,15 +48,21 @@ _worker_writer = None
 
 
 def _init_worker():
-    """Silence signals in workers so parent handles everything."""
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    """Silence common warnings in workers to keep logs clean."""
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning)
 
 
-def process_file_worker(file_path: str, crawl_id: str, threshold: float):
+def process_file_worker(
+    file_path: str, crawl_info: CrawlInfo, threshold: float
+) -> tuple[int, int, str | None]:
     """
     Process a single file (called by ProcessPoolExecutor).
     Returns (records_processed, matches_found, error_msg)
     """
+    short_name = file_path.split("/")[-1]
+    logger.info(f"   Starting: {short_name}...")
+    
     global _worker_matcher, _worker_lang_detector, _worker_writer
 
     try:
@@ -69,33 +75,44 @@ def process_file_worker(file_path: str, crawl_id: str, threshold: float):
             _worker_lang_detector = LanguageDetector()
             _worker_writer = OutputWriter()
 
-        crawl_info = get_crawl_info(crawl_id)
         is_legacy = crawl_info.era == "legacy"
 
-        # Stream and parse the file
+        # Stream and parse the file using the generator-based pipeline
         stream = stream_file(file_path, crawl_info)
+        
+        # Batch paragraphs for GPU processing to maintain efficiency
+        STREAM_BATCH_SIZE = 500  # Smaller batches for more frequent progress updates
+        current_batch = []
+        total_matches = 0
+        total_records_processed = 0
 
         if is_legacy:
-            records_processed, paragraphs = extract_paragraphs_from_arc(stream, crawl_id)
+            generator = extract_paragraphs_from_arc(stream, crawl_info.crawl_id, _worker_matcher.keyword_matcher)
         else:
-            records_processed, paragraphs = extract_paragraphs_from_wet(stream, crawl_id)
+            generator = extract_paragraphs_from_wet(stream, crawl_info.crawl_id, _worker_matcher.keyword_matcher)
 
-        if not paragraphs:
-            return records_processed, 0, None
+        for para, kw_matches, records_seen in generator:
+            total_records_processed = records_seen
+            current_batch.append((para, kw_matches))
 
-        # Process paragraphs in smaller batches to avoid VRAM spikes and OOM
-        # though current paragraphs per file is usually manageable
-        matches = []
-        for i in range(0, len(paragraphs), MAX_PARAGRAPHS_PER_BATCH):
-            batch = paragraphs[i : i + MAX_PARAGRAPHS_PER_BATCH]
-            batch_matches = _worker_matcher.process_paragraphs(batch)
-            matches.extend(batch_matches)
+            # When batch is full, send to GPU for matching
+            if len(current_batch) >= STREAM_BATCH_SIZE:
+                matches = _worker_matcher.process_batch_stage2(current_batch)
+                if matches:
+                    total_matches += len(matches)
+                    languages = [_worker_lang_detector.detect(m.text) for m in matches]
+                    _worker_writer.write_matches(matches, languages, file_path)
+                current_batch = []
 
-        if matches:
-            languages = [_worker_lang_detector.detect(m.text) for m in matches]
-            _worker_writer.write_matches(matches, languages, file_path)
+        # Process final partial batch
+        if current_batch:
+            matches = _worker_matcher.process_batch_stage2(current_batch)
+            if matches:
+                total_matches += len(matches)
+                languages = [_worker_lang_detector.detect(m.text) for m in matches]
+                _worker_writer.write_matches(matches, languages, file_path)
 
-        return records_processed, len(matches), None
+        return total_records_processed, total_matches, None
 
     except Exception as e:
         return 0, 0, str(e)
@@ -129,11 +146,12 @@ def process_crawl(
     """
     global _shutdown_requested
 
+    # Fetch crawl metadata once in the parent process
+    # This prevents all workers from hitting the network simultaneously
     crawl_info = get_crawl_info(crawl_id)
     is_legacy = crawl_info.era == "legacy"
-    format_label = "ARC (HTML)" if is_legacy else "WET (text)"
 
-    logger.info(f"--- Crawl: {crawl_id} [{format_label}] ---")
+    logger.info(f"--- Crawl: {crawl_id} [{'ARC (HTML)' if is_legacy else 'WET (text)'}] ---")
 
     tracker = ProgressTracker()
 
@@ -187,7 +205,7 @@ def process_crawl(
     
     with ProcessPoolExecutor(max_workers=MAX_WORKERS, initializer=_init_worker) as executor:
         future_to_file = {
-            executor.submit(process_file_worker, f, crawl_id, threshold): f 
+            executor.submit(process_file_worker, f, crawl_info, threshold): f 
             for f in pending_files
         }
 

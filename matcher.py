@@ -337,6 +337,67 @@ class HybridMatcher:
             f"narrative_filter={'ON' if self.narrative_filter else 'OFF'})"
         )
 
+    def process_batch_stage2(
+        self, batch: list[tuple[Paragraph, list[str]]]
+    ) -> list[Match]:
+        """
+        Run Stage 2 (Semantic) and Stage 3 (Narrative) on a batch of
+        paragraphs that have already passed Stage 1 (Keyword).
+
+        Args:
+            batch: List of (Paragraph, list_of_keywords) tuples
+
+        Returns:
+            List of Match objects that passed all stages
+        """
+        if not batch:
+            return []
+
+        paragraphs = [b[0] for b in batch]
+        keywords = [b[1] for b in batch]
+        texts = [p.text for p in paragraphs]
+
+        # Stage 2: Semantic similarity scoring
+        scores = self.semantic_matcher.score_paragraphs(texts)
+
+        # Filter by threshold
+        semantic_matches = []
+        for i, (score, concept) in enumerate(scores):
+            if score >= self.threshold:
+                semantic_matches.append((i, score, concept))
+
+        if not semantic_matches:
+            return []
+
+        # Stage 3: Narrative voice filter
+        matches = []
+        if self.narrative_filter:
+            for i, score, concept in semantic_matches:
+                if self.narrative_filter.passes(paragraphs[i].text, MIN_NARRATIVE_INDICATORS):
+                    matches.append(Match(
+                        url=paragraphs[i].url,
+                        warc_date=paragraphs[i].warc_date,
+                        text=paragraphs[i].text,
+                        matched_keywords=keywords[i],
+                        semantic_score=score,
+                        concept_match=concept,
+                        crawl_id=paragraphs[i].crawl_id,
+                    ))
+        else:
+            for i, score, concept in semantic_matches:
+                matches.append(Match(
+                    url=paragraphs[i].url,
+                    warc_date=paragraphs[i].warc_date,
+                    text=paragraphs[i].text,
+                    matched_keywords=keywords[i],
+                    semantic_score=score,
+                    concept_match=concept,
+                    crawl_id=paragraphs[i].crawl_id,
+                ))
+
+        return matches
+
+
     def process_paragraphs(self, paragraphs: list[Paragraph]) -> list[Match]:
         """
         Run all matching stages on a list of paragraphs.
