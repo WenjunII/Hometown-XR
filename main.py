@@ -22,13 +22,13 @@ import logging
 import signal
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Manager
 
-from config import DEFAULT_CRAWL_ID, SEMANTIC_THRESHOLD
+from config import DEFAULT_CRAWL_ID, SEMANTIC_THRESHOLD, MAX_WORKERS, MAX_PARAGRAPHS_PER_BATCH
 from crawl_catalog import get_crawl_info, get_all_crawl_ids, is_legacy_crawl, get_modern_crawls, LEGACY_CRAWLS
 from downloader import fetch_file_paths, stream_file
 from processor import extract_paragraphs_from_wet, extract_paragraphs_from_arc
-from matcher import HybridMatcher
-from language_detector import LanguageDetector
 from progress import ProgressTracker
 from output import OutputWriter
 
@@ -40,6 +40,67 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
+# -- Worker Initialization ----------------------------------------------------
+# Global variables in worker processes (initialized lazily)
+_worker_matcher = None
+_worker_lang_detector = None
+_worker_writer = None
+
+
+def _init_worker():
+    """Silence signals in workers so parent handles everything."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def process_file_worker(file_path: str, crawl_id: str, threshold: float):
+    """
+    Process a single file (called by ProcessPoolExecutor).
+    Returns (records_processed, matches_found, error_msg)
+    """
+    global _worker_matcher, _worker_lang_detector, _worker_writer
+
+    try:
+        # Lazy initialization of ML models in the worker process
+        if _worker_matcher is None:
+            # Import inside worker to avoid overhead in parent/other processes
+            from matcher import HybridMatcher
+            from language_detector import LanguageDetector
+            _worker_matcher = HybridMatcher(threshold=threshold)
+            _worker_lang_detector = LanguageDetector()
+            _worker_writer = OutputWriter()
+
+        crawl_info = get_crawl_info(crawl_id)
+        is_legacy = crawl_info.era == "legacy"
+
+        # Stream and parse the file
+        stream = stream_file(file_path, crawl_info)
+
+        if is_legacy:
+            records_processed, paragraphs = extract_paragraphs_from_arc(stream, crawl_id)
+        else:
+            records_processed, paragraphs = extract_paragraphs_from_wet(stream, crawl_id)
+
+        if not paragraphs:
+            return records_processed, 0, None
+
+        # Process paragraphs in smaller batches to avoid VRAM spikes and OOM
+        # though current paragraphs per file is usually manageable
+        matches = []
+        for i in range(0, len(paragraphs), MAX_PARAGRAPHS_PER_BATCH):
+            batch = paragraphs[i : i + MAX_PARAGRAPHS_PER_BATCH]
+            batch_matches = _worker_matcher.process_paragraphs(batch)
+            matches.extend(batch_matches)
+
+        if matches:
+            languages = [_worker_lang_detector.detect(m.text) for m in matches]
+            _worker_writer.write_matches(matches, languages, file_path)
+
+        return records_processed, len(matches), None
+
+    except Exception as e:
+        return 0, 0, str(e)
+
+
 # -- Graceful Shutdown --------------------------------------------------------
 _shutdown_requested = False
 
@@ -50,7 +111,7 @@ def _signal_handler(signum, frame):
         logger.warning("Force quit! Exiting immediately.")
         sys.exit(1)
     _shutdown_requested = True
-    logger.info("Shutdown requested. Finishing current file, then stopping...")
+    logger.info("Shutdown requested. Cleaning up...")
 
 
 signal.signal(signal.SIGINT, _signal_handler)
@@ -62,11 +123,9 @@ def process_crawl(
     crawl_id: str,
     limit: int | None,
     threshold: float,
-    matcher: HybridMatcher,
-    lang_detector: LanguageDetector,
 ) -> tuple[int, int]:
     """
-    Process a single crawl. Returns (files_processed, matches_found).
+    Process a single crawl using a pool of workers.
     """
     global _shutdown_requested
 
@@ -77,7 +136,6 @@ def process_crawl(
     logger.info(f"--- Crawl: {crawl_id} [{format_label}] ---")
 
     tracker = ProgressTracker()
-    writer = OutputWriter()
 
     # Fetch file list
     logger.info("Fetching file list...")
@@ -95,77 +153,76 @@ def process_crawl(
         f"{summary['total_matches']} matches so far"
     )
 
-    # Processing loop
+    # Filtering down to files we actually need to process
+    pending_files = []
+    files_to_process = limit if limit else summary['total_files']
+    
+    count = 0
+    while count < files_to_process:
+        f = tracker.get_next_pending(crawl_id)
+        if not f:
+            break
+        pending_files.append(f)
+        # Mark as processing immediately so multiple 'run' commands don't collide
+        tracker.mark_processing(f)
+        count += 1
+
+    if not pending_files:
+        logger.info(f"No pending files to process for {crawl_id}.")
+        return 0, 0
+
     files_processed = 0
     matches_found = 0
 
-    while True:
-        if _shutdown_requested:
-            logger.info("Shutdown requested. Stopping.")
-            break
-
-        if limit and files_processed >= limit:
-            logger.info(f"Reached file limit ({limit}). Stopping.")
-            break
-
-        file_path = tracker.get_next_pending(crawl_id)
-        if file_path is None:
-            logger.info(f"All files for {crawl_id} processed!")
-            break
-
-        tracker.mark_processing(file_path)
-        file_start_time = time.time()
-        short_name = file_path.split("/")[-1]
+    # Execute in parallel
+    logger.info(f"Starting parallel processing pool with {MAX_WORKERS} workers...")
+    
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS, initializer=_init_worker) as executor:
+        future_to_file = {
+            executor.submit(process_file_worker, f, crawl_id, threshold): f 
+            for f in pending_files
+        }
 
         try:
-            logger.info(f"Processing: {short_name}")
+            for future in as_completed(future_to_file):
+                if _shutdown_requested:
+                    logger.info("Cancelling pending tasks...")
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    break
 
-            # Stream and parse the file
-            stream = stream_file(file_path, crawl_info)
+                file_path = future_to_file[future]
+                short_name = file_path.split("/")[-1]
+                
+                try:
+                    records, matches, error = future.result()
+                    if error:
+                        logger.error(f"   Failed: {short_name} -> {error}")
+                        tracker.mark_failed(file_path, error)
+                    else:
+                        tracker.mark_completed(file_path, records, matches)
+                        files_processed += 1
+                        matches_found += matches
+                        logger.info(f"   Done: {short_name} ({records} records, {matches} matches)")
 
-            if is_legacy:
-                records_processed, paragraphs = extract_paragraphs_from_arc(stream, crawl_id)
-            else:
-                records_processed, paragraphs = extract_paragraphs_from_wet(stream, crawl_id)
+                except Exception as e:
+                    logger.error(f"   Critical error in worker for {short_name}: {e}")
+                    tracker.mark_failed(file_path, str(e))
 
-            logger.info(
-                f"   Parsed {records_processed} records -> "
-                f"{len(paragraphs)} paragraphs"
-            )
-
-            if not paragraphs:
-                tracker.mark_completed(file_path, records_processed, 0)
-                files_processed += 1
-                continue
-
-            # Run the two-stage matcher
-            matches = matcher.process_paragraphs(paragraphs)
-
-            if matches:
-                languages = [lang_detector.detect(m.text) for m in matches]
-                lang_counts = writer.write_matches(matches, languages, file_path)
-
-                lang_summary = ", ".join(
-                    f"{lang}: {count}" for lang, count in
-                    sorted(lang_counts.items(), key=lambda x: -x[1])[:5]
-                )
-                logger.info(f"   {len(matches)} matches [{lang_summary}]")
-            else:
-                logger.info(f"   No matches found")
-
-            elapsed = time.time() - file_start_time
-            tracker.mark_completed(file_path, records_processed, len(matches))
-            files_processed += 1
-            matches_found += len(matches)
-
-            logger.info(f"   Done in {elapsed:.1f}s")
-
-        except Exception as e:
-            logger.error(f"   Failed: {e}")
-            tracker.mark_failed(file_path, str(e))
-            files_processed += 1
+        except KeyboardInterrupt:
+            _shutdown_requested = True
+            executor.shutdown(wait=False, cancel_futures=True)
 
     return files_processed, matches_found
+
+
+def _warmup_models(threshold: float):
+    """Ensure models are downloaded and cached before workers start."""
+    logger.info("Warming up ML models (ensures cache is ready)...")
+    from matcher import HybridMatcher
+    from language_detector import LanguageDetector
+    HybridMatcher(threshold=threshold)
+    LanguageDetector()
+    logger.info("Models warmed up and cached.")
 
 
 # -- Main Commands ------------------------------------------------------------
@@ -175,18 +232,18 @@ def run(crawl_ids: list[str], limit: int | None, threshold: float):
     global _shutdown_requested
 
     logger.info("=" * 70)
-    logger.info("  Common Crawl Home/Belonging Extractor")
+    logger.info("  Common Crawl Home/Belonging Extractor (Parallel GPU Mode)")
     logger.info(f"  Crawls to process: {len(crawl_ids)}")
     logger.info(f"  Semantic threshold: {threshold}")
+    logger.info(f"  Max workers:        {MAX_WORKERS}")
     if limit:
         logger.info(f"  File limit per crawl: {limit}")
     logger.info("=" * 70)
 
-    # Load ML models once (shared across all crawls)
-    logger.info("Loading ML models (first run downloads ~600 MB)...")
-    matcher = HybridMatcher(threshold=threshold)
-    lang_detector = LanguageDetector()
-    logger.info("All models loaded. Starting processing.\n")
+    # Ensure models are cached before workers start
+    _warmup_models(threshold)
+
+    logger.info("Starting processing loop. Tasks will be distributed to workers.\n")
 
     total_files = 0
     total_matches = 0
@@ -197,7 +254,7 @@ def run(crawl_ids: list[str], limit: int | None, threshold: float):
 
         logger.info(f"\n[{i+1}/{len(crawl_ids)}] Starting crawl: {crawl_id}")
         files, matches = process_crawl(
-            crawl_id, limit, threshold, matcher, lang_detector
+            crawl_id, limit, threshold
         )
         total_files += files
         total_matches += matches

@@ -32,7 +32,8 @@ MIN_PARAGRAPH_LENGTH = 100
 MAX_PARAGRAPH_LENGTH = 5000
 
 # Batch size for sentence-transformer encoding
-ENCODING_BATCH_SIZE = 32
+# Higher values (128+) recommended for GPU
+ENCODING_BATCH_SIZE = 128
 
 # ── Narrative Voice Filter ───────────────────────────────────────────────────
 # Enable the narrative voice filter (Stage 3) to prefer personal stories
@@ -61,3 +62,17 @@ HTTP_BACKOFF_FACTOR = 1.0
 # ── Processing Settings ─────────────────────────────────────────────────────
 # Number of characters from a paragraph used for language detection
 LANG_DETECT_CHARS = 500
+
+# Device for semantic matching ('cuda', 'mps', or 'cpu')
+import torch
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    DEVICE = "mps"
+else:
+    DEVICE = "cpu"
+
+# Multiprocessing settings
+MAX_WORKERS = os.cpu_count() or 4
+# Max number of paragraphs to send to matcher in one go (prevents memory spikes)
+MAX_PARAGRAPHS_PER_BATCH = 5000

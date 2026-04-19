@@ -27,6 +27,7 @@ from config import (
     SEMANTIC_MODEL_NAME,
     SEMANTIC_THRESHOLD,
     ENCODING_BATCH_SIZE,
+    DEVICE,
     NARRATIVE_FILTER_ENABLED,
     MIN_NARRATIVE_INDICATORS,
 )
@@ -120,13 +121,14 @@ class SemanticMatcher:
     """
 
     def __init__(self):
-        logger.info(f"Loading semantic model: {SEMANTIC_MODEL_NAME}")
-        self.model = SentenceTransformer(SEMANTIC_MODEL_NAME)
+        logger.info(f"Loading semantic model: {SEMANTIC_MODEL_NAME} on {DEVICE}")
+        self.model = SentenceTransformer(SEMANTIC_MODEL_NAME, device=DEVICE)
         logger.info("Encoding concept anchors...")
         self.anchor_embeddings = self.model.encode(
             CONCEPT_ANCHORS,
             convert_to_tensor=True,
             show_progress_bar=False,
+            device=DEVICE,
         )
         logger.info(f"Encoded {len(CONCEPT_ANCHORS)} concept anchors")
 
@@ -151,6 +153,7 @@ class SemanticMatcher:
             batch_size=ENCODING_BATCH_SIZE,
             convert_to_tensor=True,
             show_progress_bar=False,
+            device=DEVICE,
         )
 
         # Compute cosine similarity against all concept anchors
