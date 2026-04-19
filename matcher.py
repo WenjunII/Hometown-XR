@@ -243,21 +243,22 @@ class NarrativeFilter:
         # Chinese
         "我记得", "我从小", "小时候", "我的家",
         "我长大", "我出生", "我思念", "我怀念",
-        # Spanish
-        "recuerdo", "crecí en", "cuando era", "mi madre",
-        "mi padre", "mi familia", "nací en",
-        # French
-        "je me souviens", "j'ai grandi", "quand j'étais",
-        "ma mère", "mon père", "ma famille",
-        # German
-        "ich erinnere", "ich bin aufgewachsen", "als ich",
-        "meine Mutter", "mein Vater", "meine Familie",
-        # Japanese
-        "覚えている", "育った", "生まれた", "子供の頃",
-        # Korean
-        "기억해", "자랐", "태어났", "어렸을 때",
-        # Arabic
-        "أتذكر", "نشأت", "ولدت في", "عندما كنت",
+        # Portuguese
+        "eu lembro", "eu cresci", "quando eu era",
+        "minha mãe", "meu pai", "minha família",
+    ]
+
+    # Negative indicators — signals of non-narrative text
+    _NEGATIVE_INDICATORS = [
+        "wikipedia", "encyclopedia", "dictionary", "privacy policy",
+        "terms of use", "terms of service", "all rights reserved",
+        "search billions", "census records", "vital records",
+        "family trees & communities", "immigration records",
+        "military records", "directories & member lists",
+        "court, land & probate", "finding aids", "site index",
+        "login", "sign up", "password", "create account",
+        "shopping cart", "add to cart", "buy now", "price:",
+        "copyright ©", "all rights reserved", "contact us",
     ]
 
     def __init__(self):
@@ -271,13 +272,14 @@ class NarrativeFilter:
             except re.error:
                 pass
 
-        # Pre-lowercase narrative phrases for fast lookup
         self._narrative_phrases_lower = [p.lower() for p in self._NARRATIVE_PHRASES]
+        self._negative_indicators_lower = [p.lower() for p in self._NEGATIVE_INDICATORS]
 
         logger.info(
             f"NarrativeFilter loaded: {len(self._pronoun_patterns)} pronoun patterns, "
             f"{len(self._FIRST_PERSON_SUBSTRINGS)} substring markers, "
-            f"{len(self._narrative_phrases_lower)} narrative phrases"
+            f"{len(self._narrative_phrases_lower)} narrative phrases, "
+            f"{len(self._negative_indicators_lower)} negative indicators"
         )
 
     def count_indicators(self, text: str) -> int:
@@ -285,9 +287,15 @@ class NarrativeFilter:
         Count narrative voice indicators in a paragraph.
 
         Returns the total number of first-person pronouns, possessives,
-        and narrative phrases found.
+        and narrative phrases found, adjusted by negative indicators.
         """
         count = 0
+        text_lower = text.lower()
+
+        # check negative indicators first (fail fast if strong signal)
+        for neg in self._negative_indicators_lower:
+            if neg in text_lower:
+                return -10  # Hard penalty for institutional/commercial markers
 
         # Check regex-based pronoun patterns (Latin scripts)
         for pattern in self._pronoun_patterns:
@@ -301,7 +309,6 @@ class NarrativeFilter:
                 count += 1
 
         # Check narrative phrases (strong signal, worth more)
-        text_lower = text.lower()
         for phrase in self._narrative_phrases_lower:
             if phrase in text_lower:
                 count += 2  # narrative phrases are weighted higher

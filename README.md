@@ -14,7 +14,7 @@ WET/ARC File → Split into Paragraphs → Keyword Pre-Filter → Semantic Scori
 
 1. **Keyword Pre-Filter** — Scans each paragraph for any of 441 multilingual keywords covering home, belonging, roots, childhood, nostalgia, diaspora, and exile. Eliminates ~99% of irrelevant content instantly.
 2. **Semantic Similarity Scoring** — Encodes remaining candidates with a multilingual sentence-transformer and compares them against 20 personal narrative concept anchors via cosine similarity. Filters out false positives like "home page" or "home button."
-3. **Narrative Voice Filter** — (New) Checks passing paragraphs for first-person pronouns ("I", "my", "我", "yo") and storytelling indicators ("I remember", "when I grew up") in 18+ languages. Eliminates encyclopedic descriptions, genealogy databases, and commercial copy, leaving only true personal stories.
+3. **Narrative Voice Filter** — (Refined) Checks passing paragraphs for first-person pronouns ("I", "my", "我", "yo") and storytelling indicators ("I remember", "when I grew up") in 18+ languages. **New in April 2026:** Now includes an institutional noise penalty (e.g., "wikipedia", "privacy policy") to ensure high precision and eliminate non-personal data.
 
 No LLM is used. The two ML models are local and high-performance:
 - **GPU Accelerated**: If an NVIDIA GPU (RTX 3080/4090, etc.) is detected, semantic matches run on CUDA for massive throughput.
@@ -279,6 +279,8 @@ All settings are in `config.py`:
 | `ENCODING_BATCH_SIZE` | `32` | Batch size for sentence-transformer |
 | `DEFAULT_CRAWL_ID` | `CC-MAIN-2026-12` | Default crawl when `--crawl` is omitted |
 | `LANG_DETECTION_THRESHOLD` | `0.5` | Min confidence for language detection |
+| `MIN_NARRATIVE_INDICATORS` | `3` | Min unique narrative signals required |
+| `_NEGATIVE_INDICATORS` | (list) | Blacklisted institutional/commercial words |
 
 ---
 
@@ -364,7 +366,7 @@ Recommended workflow: run with `--limit 10`, inspect output with `python review.
 
 - **Streaming Matcher Pipeline**: Processes paragraphs as they are read from the network, providing near-instant feedback and low memory overhead.
 - **Parallel GPU Acceleration**: Distributes file processing across 20+ workers for massive throughput.
-- **Three-Stage Filtering**: Combines fast keyword pre-filtering (Stage 1), deep semantic matching (Stage 2), and narrative voice detection (Stage 3).
+- **Three-Stage Filtering**: Combines fast keyword pre-filtering (Stage 1), deep semantic matching (Stage 2), and narrative voice detection with **hard exclusion for non-narrative copy** (Stage 3).
 
 | Metric | Estimate (RTX 3080 + 12 Workers) |
 |--------|----------|

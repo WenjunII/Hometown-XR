@@ -41,7 +41,7 @@ NARRATIVE_FILTER_ENABLED = True
 
 # Minimum number of first-person / narrative indicators required
 # in a paragraph to pass the narrative filter
-MIN_NARRATIVE_INDICATORS = 2
+MIN_NARRATIVE_INDICATORS = 3
 
 # ── Semantic Model ───────────────────────────────────────────────────────────
 # Multilingual sentence transformer — supports 50+ languages, ~500 MB
