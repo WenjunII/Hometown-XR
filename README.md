@@ -17,8 +17,8 @@ WET/ARC File → Split into Paragraphs → Keyword Pre-Filter → Semantic Scori
 3. **Narrative Voice Filter** — (New) Checks passing paragraphs for first-person pronouns ("I", "my", "我", "yo") and storytelling indicators ("I remember", "when I grew up") in 18+ languages. Eliminates encyclopedic descriptions, genealogy databases, and commercial copy, leaving only true personal stories.
 
 No LLM is used. The two ML models are local and high-performance:
-- **GPU Accelerated**: If an NVIDIA GPU (RTX 3080, etc.) is detected, semantic matches run on CUDA for massive throughput.
-- **Multiprocessing**: The application parallelizes downloads and text extraction across all available CPU cores.
+- **GPU Accelerated**: If an NVIDIA GPU (RTX 3080/4090, etc.) is detected, semantic matches run on CUDA for massive throughput.
+- **Optimized Multiprocessing**: (Enhanced) Uses staggered worker initialization and adaptive batching to ensure stability on Windows even with 12+ parallel processes.
 
 | Model | Size | Purpose |
 |-------|------|---------|
@@ -138,6 +138,13 @@ python main.py run --crawl CC-MAIN-2026-12 --threshold 0.30
 ```
 
 Default threshold is `0.35`.
+
+### Wipe Data and Reset
+If you want to delete all extracted results and start a crawl over from scratch:
+```bash
+python main.py reset
+```
+This safely deletes `progress.db` and the `data/output/` directory while preserving your ML models.
 
 ### Stop and Resume
 
@@ -359,11 +366,11 @@ Recommended workflow: run with `--limit 10`, inspect output with `python review.
 - **Parallel GPU Acceleration**: Distributes file processing across 20+ workers for massive throughput.
 - **Three-Stage Filtering**: Combines fast keyword pre-filtering (Stage 1), deep semantic matching (Stage 2), and narrative voice detection (Stage 3).
 
-| Metric | Estimate (RTX 3080/4080 + 20 Workers) |
+| Metric | Estimate (RTX 3080 + 12 Workers) |
 |--------|----------|
 | **Matching Startup** | **Near-instant** (via Streaming + Batched DB) |
 | **Throughput** | ~20,000–40,000 pages/minute |
-| **VRAM Usage** | ~6–10 GB (12+ workers) |
+| **VRAM Usage** | ~14 GB (12 workers) |
 | **RAM Usage** | Stable (via Keyword Pre-filtering) |
 
 > **Requirement:** Use `numpy<2.0.0` to ensure compatibility with `sentence-transformers`.

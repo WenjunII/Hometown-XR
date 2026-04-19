@@ -79,7 +79,7 @@ def _html_to_text(html_content: str) -> str:
 # ── Paragraph Extraction ─────────────────────────────────────────────────────
 
 def extract_paragraphs_from_wet(
-    stream, crawl_id: str = "", keyword_matcher=None
+    stream, crawl_id: str = "", keyword_matcher=None, shutdown_event=None
 ) -> tuple[int, list[Paragraph]]:
     """
     Parse a WET file stream (modern crawls, 2013+).
@@ -91,6 +91,9 @@ def extract_paragraphs_from_wet(
 
     try:
         for record in ArchiveIterator(stream):
+            if shutdown_event and shutdown_event.is_set():
+                break
+
             if record.rec_type != "conversion":
                 continue
 
@@ -108,7 +111,7 @@ def extract_paragraphs_from_wet(
                 continue
 
             # Split into paragraphs and yield those that pass keyword filter
-            for para, keywords in _extract_paras(content, url, warc_date, crawl_id, keyword_matcher):
+            for para, keywords in _extract_paras(content, url, warc_date, crawl_id, keyword_matcher, shutdown_event):
                 yield para, keywords, records_processed
 
     except Exception as e:
@@ -116,7 +119,7 @@ def extract_paragraphs_from_wet(
 
 
 def extract_paragraphs_from_arc(
-    stream, crawl_id: str = "", keyword_matcher=None
+    stream, crawl_id: str = "", keyword_matcher=None, shutdown_event=None
 ) -> tuple[int, list[Paragraph]]:
     """
     Parse an ARC file stream (legacy crawls, 2008-2012).
@@ -128,6 +131,9 @@ def extract_paragraphs_from_arc(
 
     try:
         for record in ArchiveIterator(stream, arc2warc=True):
+            if shutdown_event and shutdown_event.is_set():
+                break
+
             # ARC records converted to WARC appear as 'response' type
             if record.rec_type not in ("response", "resource"):
                 continue
@@ -164,7 +170,7 @@ def extract_paragraphs_from_arc(
                 continue
 
             # Split into paragraphs and yield those that pass keyword filter
-            for para, keywords in _extract_paras(text_content, url, warc_date, crawl_id, keyword_matcher):
+            for para, keywords in _extract_paras(text_content, url, warc_date, crawl_id, keyword_matcher, shutdown_event):
                 yield para, keywords, records_processed
 
     except Exception as e:
@@ -173,7 +179,7 @@ def extract_paragraphs_from_arc(
 
 def _extract_paras(
     content: str, url: str, warc_date: str,
-    crawl_id: str = "", keyword_matcher=None,
+    crawl_id: str = "", keyword_matcher=None, shutdown_event=None,
 ):
     """
     Split text content into paragraphs and apply length filters.
@@ -182,6 +188,9 @@ def _extract_paras(
     raw_paragraphs = content.split("\n\n")
 
     for raw_para in raw_paragraphs:
+        if shutdown_event and shutdown_event.is_set():
+            break
+
         text = " ".join(raw_para.split())
 
         if len(text) < MIN_PARAGRAPH_LENGTH:

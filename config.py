@@ -23,7 +23,7 @@ DEFAULT_CRAWL_ID = "CC-MAIN-2026-12"
 
 # ── Matching Settings ────────────────────────────────────────────────────────
 # Minimum cosine similarity score to accept a paragraph as a match
-SEMANTIC_THRESHOLD = 0.42
+SEMANTIC_THRESHOLD = 0.35
 
 # Minimum paragraph length in characters (filters out navigation text, short labels)
 MIN_PARAGRAPH_LENGTH = 100
@@ -73,7 +73,7 @@ else:
     DEVICE = "cpu"
 
 # Multiprocessing settings
-# 20 workers optimized for high-end GPUs (RTX 3080 Ti / 5090) and the streaming pipeline
-MAX_WORKERS = 20
+# 12 workers optimized for RTX 3080 to prevent resource exhaustion
+MAX_WORKERS = 12
 # Max number of paragraphs to send to matcher in one go (prevents memory spikes)
 MAX_PARAGRAPHS_PER_BATCH = 5000

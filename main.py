@@ -20,12 +20,18 @@ Usage:
 import argparse
 import logging
 import signal
-import sys
+import os
+import random
+import re
+import shutil
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import Manager
+from concurrent.futures import ProcessPoolExecutor, as_completed, FIRST_COMPLETED, wait
+from multiprocessing import Event, current_process
 
-from config import DEFAULT_CRAWL_ID, SEMANTIC_THRESHOLD, MAX_WORKERS, MAX_PARAGRAPHS_PER_BATCH
+from config import (
+    DEFAULT_CRAWL_ID, SEMANTIC_THRESHOLD, MAX_WORKERS, 
+    MAX_PARAGRAPHS_PER_BATCH, DB_PATH, OUTPUT_DIR, DATA_DIR
+)
 from crawl_catalog import CrawlInfo, get_crawl_info, get_all_crawl_ids, is_legacy_crawl, get_modern_crawls, LEGACY_CRAWLS
 from downloader import fetch_file_paths, stream_file
 from processor import extract_paragraphs_from_wet, extract_paragraphs_from_arc
@@ -40,15 +46,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
-# -- Worker Initialization ----------------------------------------------------
 # Global variables in worker processes (initialized lazily)
 _worker_matcher = None
 _worker_lang_detector = None
 _worker_writer = None
+_worker_shutdown_event = None
 
 
-def _init_worker():
-    """Silence common warnings in workers to keep logs clean."""
+def _init_worker(shutdown_event):
+    """Initialize global state in worker processes."""
+    global _worker_shutdown_event
+    _worker_shutdown_event = shutdown_event
+    
+    # Stagger initialization to prevent VRAM spikes on Windows
+    # (prevents all 12 workers from grabbing 700MB at once)
+    time.sleep(random.uniform(0, 5))
+    
     import warnings
     warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -60,6 +73,13 @@ def process_file_worker(
     Process a single file (called by ProcessPoolExecutor).
     Returns (records_processed, matches_found, error_msg)
     """
+    # Use the global event initialized by _init_worker
+    global _worker_shutdown_event
+    shutdown_event = _worker_shutdown_event
+
+    if shutdown_event and shutdown_event.is_set():
+        return 0, 0, "Skipped due to shutdown"
+
     short_name = file_path.split("/")[-1]
     logger.info(f"   Starting: {short_name}...")
     
@@ -80,18 +100,23 @@ def process_file_worker(
         # Stream and parse the file using the generator-based pipeline
         stream = stream_file(file_path, crawl_info)
         
-        # Batch paragraphs for GPU processing to maintain efficiency
-        STREAM_BATCH_SIZE = 500  # Smaller batches for more frequent progress updates
+        # Accumulate batches for the GPU
+        # Smaller batch size (200 instead of 500) makes GPU load "smoother" 
+        # and reduces VRAM peaks that can kill processes on Windows.
+        STREAM_BATCH_SIZE = 200
         current_batch = []
         total_matches = 0
         total_records_processed = 0
 
         if is_legacy:
-            generator = extract_paragraphs_from_arc(stream, crawl_info.crawl_id, _worker_matcher.keyword_matcher)
+            generator = extract_paragraphs_from_arc(stream, crawl_info.crawl_id, _worker_matcher.keyword_matcher, shutdown_event)
         else:
-            generator = extract_paragraphs_from_wet(stream, crawl_info.crawl_id, _worker_matcher.keyword_matcher)
+            generator = extract_paragraphs_from_wet(stream, crawl_info.crawl_id, _worker_matcher.keyword_matcher, shutdown_event)
 
         for para, kw_matches, records_seen in generator:
+            if shutdown_event and shutdown_event.is_set():
+                break
+
             total_records_processed = records_seen
             current_batch.append((para, kw_matches))
 
@@ -104,8 +129,8 @@ def process_file_worker(
                     _worker_writer.write_matches(matches, languages, file_path)
                 current_batch = []
 
-        # Process final partial batch
-        if current_batch:
+        # Process final partial batch (if not skipped by shutdown)
+        if current_batch and not (shutdown_event and shutdown_event.is_set()):
             matches = _worker_matcher.process_batch_stage2(current_batch)
             if matches:
                 total_matches += len(matches)
@@ -118,20 +143,26 @@ def process_file_worker(
         return 0, 0, str(e)
 
 
-# -- Graceful Shutdown --------------------------------------------------------
-_shutdown_requested = False
+_shutdown_event = None
 
 
 def _signal_handler(signum, frame):
-    global _shutdown_requested
-    if _shutdown_requested:
-        logger.warning("Force quit! Exiting immediately.")
+    global _shutdown_event
+    if _shutdown_event and _shutdown_event.is_set():
+        if current_process().name == "MainProcess":
+            logger.warning("Force quit! Exiting immediately.")
         sys.exit(1)
-    _shutdown_requested = True
-    logger.info("Shutdown requested. Cleaning up...")
+    
+    if _shutdown_event:
+        _shutdown_event.set()
+    
+    # Only the main process should log the shutdown request to avoid noise
+    if current_process().name == "MainProcess":
+        logger.info("Shutdown requested. Cleaning up...")
 
 
 signal.signal(signal.SIGINT, _signal_handler)
+signal.signal(signal.SIGTERM, _signal_handler)
 
 
 # -- Process a Single Crawl ---------------------------------------------------
@@ -200,42 +231,73 @@ def process_crawl(
     files_processed = 0
     matches_found = 0
 
-    # Execute in parallel
+    # Execute in parallel with throttled submission
     logger.info(f"Starting parallel processing pool with {MAX_WORKERS} workers...")
     
-    with ProcessPoolExecutor(max_workers=MAX_WORKERS, initializer=_init_worker) as executor:
-        future_to_file = {
-            executor.submit(process_file_worker, f, crawl_info, threshold): f 
-            for f in pending_files
-        }
-
+    with ProcessPoolExecutor(
+        max_workers=MAX_WORKERS, 
+        initializer=_init_worker, 
+        initargs=(_shutdown_event,)
+    ) as executor:
+        futures = {}
+        pending_iter = iter(pending_files)
+        
+        # Buffer size: keep enough tasks to keep all workers busy
+        max_active = MAX_WORKERS * 2
+        
         try:
-            for future in as_completed(future_to_file):
-                if _shutdown_requested:
+            # Initial submission
+            for _ in range(min(len(pending_files), max_active)):
+                f_path = next(pending_iter)
+                fut = executor.submit(process_file_worker, f_path, crawl_info, threshold)
+                futures[fut] = f_path
+
+            while futures:
+                if _shutdown_event.is_set():
                     logger.info("Cancelling pending tasks...")
+                    # For Python 3.9+ we can cancel_futures
                     executor.shutdown(wait=False, cancel_futures=True)
                     break
 
-                file_path = future_to_file[future]
-                short_name = file_path.split("/")[-1]
+                # Wait for at least one task to complete
+                done, _ = wait(futures.keys(), return_when=FIRST_COMPLETED, timeout=1.0)
                 
-                try:
-                    records, matches, error = future.result()
-                    if error:
-                        logger.error(f"   Failed: {short_name} -> {error}")
-                        tracker.mark_failed(file_path, error)
-                    else:
-                        tracker.mark_completed(file_path, records, matches)
-                        files_processed += 1
-                        matches_found += matches
-                        logger.info(f"   Done: {short_name} ({records} records, {matches} matches)")
+                for future in done:
+                    file_path = futures.pop(future)
+                    short_name = file_path.split("/")[-1]
+                    
+                    try:
+                        records, matches, error = future.result()
+                        if error:
+                            if error == "Skipped due to shutdown":
+                                tracker.mark_batch_processing([file_path]) # Reset it? No, just leave it as processing for now or mark failed.
+                                # Actually tracker already marked it as processing. We should probably reset it or mark it for resume.
+                                logger.debug(f"   Skipped: {short_name} (shutdown)")
+                            else:
+                                logger.error(f"   Failed: {short_name} -> {error}")
+                                tracker.mark_failed(file_path, error)
+                        else:
+                            tracker.mark_completed(file_path, records, matches)
+                            files_processed += 1
+                            matches_found += matches
+                            logger.info(f"   Done: {short_name} ({records} records, {matches} matches)")
 
-                except Exception as e:
-                    logger.error(f"   Critical error in worker for {short_name}: {e}")
-                    tracker.mark_failed(file_path, str(e))
+                    except Exception as e:
+                        logger.error(f"   Critical error in worker for {short_name}: {e}")
+                        tracker.mark_failed(file_path, str(e))
+
+                # Refill the buffer
+                while len(futures) < max_active and not _shutdown_event.is_set():
+                    try:
+                        f_path = next(pending_iter)
+                        fut = executor.submit(process_file_worker, f_path, crawl_info, threshold)
+                        futures[fut] = f_path
+                    except StopIteration:
+                        break
 
         except KeyboardInterrupt:
-            _shutdown_requested = True
+            if _shutdown_event:
+                _shutdown_event.set()
             executor.shutdown(wait=False, cancel_futures=True)
 
     return files_processed, matches_found
@@ -255,7 +317,10 @@ def _warmup_models(threshold: float):
 
 def run(crawl_ids: list[str], limit: int | None, threshold: float):
     """Main processing loop for one or more crawls."""
-    global _shutdown_requested
+    global _shutdown_event
+
+    # Initialize shared shutdown event (using standard Event instead of Manager to avoid pipe errors)
+    _shutdown_event = Event()
 
     logger.info("=" * 70)
     logger.info("  Common Crawl Home/Belonging Extractor (Parallel GPU Mode)")
@@ -274,25 +339,26 @@ def run(crawl_ids: list[str], limit: int | None, threshold: float):
     total_files = 0
     total_matches = 0
 
-    for i, crawl_id in enumerate(crawl_ids):
-        if _shutdown_requested:
-            break
+    try:
+        for i, crawl_id in enumerate(crawl_ids):
+            if _shutdown_event.is_set():
+                break
 
-        logger.info(f"\n[{i+1}/{len(crawl_ids)}] Starting crawl: {crawl_id}")
-        files, matches = process_crawl(
-            crawl_id, limit, threshold
-        )
-        total_files += files
-        total_matches += matches
-
-    # Final summary
-    logger.info("")
-    logger.info("=" * 70)
-    logger.info(f"  Session Summary")
-    logger.info(f"  Crawls attempted:       {min(i+1, len(crawl_ids)) if crawl_ids else 0}")
-    logger.info(f"  Files processed:        {total_files}")
-    logger.info(f"  Matches found:          {total_matches}")
-    logger.info("=" * 70)
+            logger.info(f"\n[{i+1}/{len(crawl_ids)}] Starting crawl: {crawl_id}")
+            files, matches = process_crawl(
+                crawl_id, limit, threshold
+            )
+            total_files += files
+            total_matches += matches
+    finally:
+        # Final summary
+        logger.info("")
+        logger.info("=" * 70)
+        logger.info(f"  Session Summary")
+        logger.info(f"  Crawls attempted:       {min(i+1, len(crawl_ids)) if crawl_ids else 0}")
+        logger.info(f"  Files processed:        {total_files}")
+        logger.info(f"  Matches found:          {total_matches}")
+        logger.info("=" * 70)
 
 
 def show_status():
@@ -362,6 +428,52 @@ def list_crawls():
     print(f"  Or:  python main.py run --all\n")
 
 
+def reset_data():
+    """Wipe all extracted matches and reset crawl progress."""
+    print("\n" + "=" * 60)
+    print("  WIPING ALL EXTRACTED DATA AND PROGRESS")
+    print("=" * 60)
+    
+    # 1. Reset Progress Database
+    if DB_PATH.exists():
+        print(f"  [*] Deleting progress database: {DB_PATH.name}")
+        try:
+            DB_PATH.unlink()
+        except Exception as e:
+            print(f"      Error: {e}")
+
+    # 2. Clear Output Directory (Matches)
+    if OUTPUT_DIR.exists():
+        print(f"  [*] Clearing output match files from: {OUTPUT_DIR.name}")
+        # We keep the language directories but delete their contents
+        for item in OUTPUT_DIR.iterdir():
+            if item.is_dir():
+                try:
+                    shutil.rmtree(item)
+                except Exception as e:
+                    print(f"      Error clearing {item.name}: {e}")
+            else:
+                try:
+                    item.unlink()
+                except Exception as e:
+                    print(f"      Error deleting {item.name}: {e}")
+        # Re-create the structure if needed (though run() does this)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 3. Clear Exports
+    exports_dir = DATA_DIR / "exports"
+    if exports_dir.exists():
+        print(f"  [*] Clearing exports: {exports_dir.name}")
+        try:
+            shutil.rmtree(exports_dir)
+            exports_dir.mkdir(exist_ok=True)
+        except Exception as e:
+            print(f"      Error: {e}")
+
+    print("\n  Reset complete. Workspace is clean.")
+    print("  Run 'python main.py run --all' to start fresh.\n")
+
+
 # -- CLI Argument Parsing -----------------------------------------------------
 
 def main():
@@ -401,6 +513,9 @@ def main():
     # List command
     subparsers.add_parser("list", help="List all available crawls")
 
+    # Reset command
+    subparsers.add_parser("reset", help="Wipe all data and start fresh")
+
     args = parser.parse_args()
 
     if args.command == "run":
@@ -415,6 +530,8 @@ def main():
         show_status()
     elif args.command == "list":
         list_crawls()
+    elif args.command == "reset":
+        reset_data()
     else:
         parser.print_help()
 
