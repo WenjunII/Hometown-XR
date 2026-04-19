@@ -403,4 +403,6 @@ No, you do not need AWS credentials for the 119+ modern WET format datasets. How
 
 ## License
 
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
 This project processes publicly available Common Crawl data. Common Crawl data is available under the [Common Crawl Terms of Use](https://commoncrawl.org/terms-of-use).
