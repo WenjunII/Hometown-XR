@@ -155,17 +155,25 @@ def process_crawl(
 
     # Filtering down to files we actually need to process
     pending_files = []
-    files_to_process = limit if limit else summary['total_files']
+    total_to_process = limit if limit else summary['pending']
     
-    count = 0
-    while count < files_to_process:
-        f = tracker.get_next_pending(crawl_id)
-        if not f:
-            break
-        pending_files.append(f)
-        # Mark as processing immediately so multiple 'run' commands don't collide
-        tracker.mark_processing(f)
-        count += 1
+    if total_to_process > 0:
+        logger.info(f"Preparing {total_to_process} tasks in batches...")
+        
+        batch_size = 5000
+        while len(pending_files) < total_to_process:
+            needed = total_to_process - len(pending_files)
+            current_batch_size = min(batch_size, needed)
+            
+            batch = tracker.get_batch_pending(crawl_id, limit=current_batch_size)
+            if not batch:
+                break
+                
+            tracker.mark_batch_processing(batch)
+            pending_files.extend(batch)
+            
+            if len(pending_files) % 10000 == 0 or len(pending_files) == total_to_process:
+                logger.info(f"   ... ready {len(pending_files)}/{total_to_process}")
 
     if not pending_files:
         logger.info(f"No pending files to process for {crawl_id}.")

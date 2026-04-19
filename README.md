@@ -357,14 +357,15 @@ Recommended workflow: run with `--limit 10`, inspect output with `python review.
 
 | Metric | Estimate (RTX 3080 + 20-core CPU) |
 |--------|----------|
+| **Startup Time (Task Prep)** | **Near-instant** (via batched DB transactions) |
 | Time per WET file (Parallel) | ~2–5 seconds |
 | Time per ARC file (Parallel) | ~10–20 seconds |
 | Total Throughput | ~15,000–30,000 pages/minute |
 | Files per modern crawl | ~72,000–100,000 |
 | Match rate | ~5–10 matches per file |
-| Disk space | ~5–15 MB per 1,000 files (compressed JSONL) |
+| Disk space | ~5–15 MB per 1,000 files |
 
-> **Tip:** The application automatically scales to use all available CPU cores. For example, on a 20-core machine, it will process 20 files simultaneously.
+> **Tip:** The application optimally handles large crawls with 30,000+ files by preparing tasks in batches, ensuring no multi-minute delays at startup.
 
 ---
 

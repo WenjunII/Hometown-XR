@@ -104,32 +104,45 @@ class ProgressTracker:
         finally:
             conn.close()
 
-    def get_next_pending(self, crawl_id: str = "") -> str | None:
-        """Get the next file with 'pending' status for a given crawl."""
+    def get_batch_pending(self, crawl_id: str = "", limit: int = 1000) -> list[str]:
+        """Get a batch of files with 'pending' status for a given crawl."""
         conn = self._get_conn()
         try:
-            row = conn.execute(
+            rows = conn.execute(
                 "SELECT file_path FROM processing_state "
-                "WHERE status = 'pending' AND crawl_id = ? LIMIT 1",
-                (crawl_id,)
-            ).fetchone()
-            return row["file_path"] if row else None
+                "WHERE status = 'pending' AND crawl_id = ? LIMIT ?",
+                (crawl_id, limit)
+            ).fetchall()
+            return [row["file_path"] for row in rows]
+        finally:
+            conn.close()
+
+    def get_next_pending(self, crawl_id: str = "") -> str | None:
+        """Get the next file with 'pending' status for a given crawl."""
+        batch = self.get_batch_pending(crawl_id, limit=1)
+        return batch[0] if batch else None
+
+    def mark_batch_processing(self, file_paths: list[str]):
+        """Mark multiple files as currently being processed in a single transaction."""
+        if not file_paths:
+            return
+        conn = self._get_conn()
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            # SQLite handles about 999 parameters per query usually, 
+            # so we use executemany for safety and speed.
+            conn.executemany(
+                "UPDATE processing_state SET status = 'processing', "
+                "started_at = ? WHERE file_path = ?",
+                [(now, p) for p in file_paths],
+            )
+            conn.commit()
         finally:
             conn.close()
 
     def mark_processing(self, file_path: str):
         """Mark a file as currently being processed."""
-        conn = self._get_conn()
-        try:
-            now = datetime.now(timezone.utc).isoformat()
-            conn.execute(
-                "UPDATE processing_state SET status = 'processing', "
-                "started_at = ? WHERE file_path = ?",
-                (now, file_path),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        self.mark_batch_processing([file_path])
 
     def mark_completed(
         self, file_path: str, records_processed: int, matches_found: int
