@@ -137,7 +137,7 @@ python main.py run --crawl CC-MAIN-2026-12 --threshold 0.45
 python main.py run --crawl CC-MAIN-2026-12 --threshold 0.30
 ```
 
-Default threshold is `0.35`.
+Default threshold is `0.40`.
 
 ### Wipe Data and Reset
 If you want to delete all extracted results and start a crawl over from scratch:
@@ -273,13 +273,13 @@ All settings are in `config.py`:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `SEMANTIC_THRESHOLD` | `0.35` | Min cosine similarity to accept a match |
+| `SEMANTIC_THRESHOLD` | `0.40` | Min cosine similarity to accept a match |
 | `MIN_PARAGRAPH_LENGTH` | `100` | Skip paragraphs shorter than this (chars) |
 | `MAX_PARAGRAPH_LENGTH` | `5000` | Skip paragraphs longer than this (chars) |
 | `ENCODING_BATCH_SIZE` | `32` | Batch size for sentence-transformer |
 | `DEFAULT_CRAWL_ID` | `CC-MAIN-2026-12` | Default crawl when `--crawl` is omitted |
 | `LANG_DETECTION_THRESHOLD` | `0.5` | Min confidence for language detection |
-| `MIN_NARRATIVE_INDICATORS` | `4` | Min unique narrative signals required |
+| `MIN_NARRATIVE_INDICATORS` | `3` | Min unique narrative signals required |
 | `_NEGATIVE_INDICATORS` | (list) | Blacklisted institutional/commercial words |
 
 ---
@@ -354,8 +354,8 @@ The application is pre-configured with 20 anchor sentences organized into 7 them
 ### Tuning the Threshold
 
 - **`0.30`** — More permissive. Catches loosely related content. Good for exploration.
-- **`0.35`** — Default. Balanced precision/recall.
-- **`0.40–0.45`** — More strict. Higher relevance but may miss some valid content.
+- **`0.35`** — Balanced precision/recall.
+- **`0.40`** — Default (Strict). Higher relevance, preferred for personal narratives.
 - **`0.50+`** — Very strict. Only strong matches pass.
 
 Recommended workflow: run with `--limit 10`, inspect output with `python review.py`, adjust threshold, repeat.
