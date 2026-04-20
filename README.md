@@ -279,7 +279,7 @@ All settings are in `config.py`:
 | `ENCODING_BATCH_SIZE` | `32` | Batch size for sentence-transformer |
 | `DEFAULT_CRAWL_ID` | `CC-MAIN-2026-12` | Default crawl when `--crawl` is omitted |
 | `LANG_DETECTION_THRESHOLD` | `0.5` | Min confidence for language detection |
-| `MIN_NARRATIVE_INDICATORS` | `3` | Min unique narrative signals required |
+| `MIN_NARRATIVE_INDICATORS` | `4` | Min unique narrative signals required |
 | `_NEGATIVE_INDICATORS` | (list) | Blacklisted institutional/commercial words |
 
 ---
