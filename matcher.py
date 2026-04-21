@@ -259,6 +259,20 @@ class NarrativeFilter:
         "login", "sign up", "password", "create account",
         "shopping cart", "add to cart", "buy now", "price:",
         "copyright ©", "all rights reserved", "contact us",
+        # Lyric Indicators
+        "lyrics by", "songwriter", "produced by", "official video",
+        "discography", "sheet music", "official audio", "feat.",
+        "remix", "instrumental", "karaoke",
+        # Ad/Commercial Indicators
+        "special offer", "limited time", "save %", "off your order",
+        "don't miss out", "apply now", "subscribe today", "free trial",
+        "money back guarantee", "bestseller", "click here", "buy it now",
+        "curriculum vitae", "resume", "cv", "portfolio",
+    ]
+
+    _LYRIC_REGEX_PATTERNS = [
+        r"\[Verse \d+\]", r"\[Chorus\]", r"\[Bridge\]", r"\[Outro\]", r"\[Intro\]",
+        r"\(Chorus\)", r"\(Verse\)", r"\(Bridge\)",
     ]
 
     def __init__(self):
@@ -275,12 +289,47 @@ class NarrativeFilter:
         self._narrative_phrases_lower = [p.lower() for p in self._NARRATIVE_PHRASES]
         self._negative_indicators_lower = [p.lower() for p in self._NEGATIVE_INDICATORS]
 
+        self._lyric_regexes = []
+        for pat in self._LYRIC_REGEX_PATTERNS:
+            try:
+                self._lyric_regexes.append(re.compile(pat, re.IGNORECASE))
+            except re.error:
+                pass
+
         logger.info(
             f"NarrativeFilter loaded: {len(self._pronoun_patterns)} pronoun patterns, "
             f"{len(self._FIRST_PERSON_SUBSTRINGS)} substring markers, "
             f"{len(self._narrative_phrases_lower)} narrative phrases, "
-            f"{len(self._negative_indicators_lower)} negative indicators"
+            f"{len(self._negative_indicators_lower)} negative indicators, "
+            f"{len(self._lyric_regexes)} lyric regex patterns"
         )
+
+    def _is_repetitive(self, text: str) -> bool:
+        """
+        Check for repetitive structure within a paragraph.
+        Common in song choruses or low-quality scraped text.
+        """
+        words = text.lower().split()
+        if len(words) < 20:
+            return False
+
+        # Check for phrase repetition (3rd-word phrase overlap)
+        if len(words) > 50:
+            phrases = []
+            for i in range(len(words) - 3):
+                phrases.append(" ".join(words[i:i+3]))
+
+            if not phrases:
+                return False
+
+            unique_phrases = set(phrases)
+            repetition_rate = 1.0 - (len(unique_phrases) / len(phrases))
+
+            # If more than 25% of 3-word phrases are repeats, it's likely a chorus or spam
+            if repetition_rate > 0.25:
+                return True
+
+        return False
 
     def count_indicators(self, text: str) -> int:
         """
@@ -295,7 +344,16 @@ class NarrativeFilter:
         # check negative indicators first (fail fast if strong signal)
         for neg in self._negative_indicators_lower:
             if neg in text_lower:
-                return -10  # Hard penalty for institutional/commercial markers
+                return -20  # Increased penalty for institutional/commercial markers
+
+        # Check regex-based lyric markers
+        for pattern in self._lyric_regexes:
+            if pattern.search(text):
+                return -20  # Hard stop for explicit lyric markers
+
+        # Check for repetitive structures
+        if self._is_repetitive(text):
+            return -20  # Hard stop for choruses
 
         # Check regex-based pronoun patterns (Latin scripts)
         for pattern in self._pronoun_patterns:

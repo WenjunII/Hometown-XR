@@ -26,7 +26,7 @@ DEFAULT_CRAWL_ID = "CC-MAIN-2026-12"
 SEMANTIC_THRESHOLD = 0.40
 
 # Minimum paragraph length in characters (filters out navigation text, short labels)
-MIN_PARAGRAPH_LENGTH = 100
+MIN_PARAGRAPH_LENGTH = 150
 
 # Maximum paragraph length in characters (filters out extremely long blocks)
 MAX_PARAGRAPH_LENGTH = 5000
@@ -41,7 +41,7 @@ NARRATIVE_FILTER_ENABLED = True
 
 # Minimum number of first-person / narrative indicators required
 # in a paragraph to pass the narrative filter
-MIN_NARRATIVE_INDICATORS = 3
+MIN_NARRATIVE_INDICATORS = 5
 
 # ── Semantic Model ───────────────────────────────────────────────────────────
 # Multilingual sentence transformer — supports 50+ languages, ~500 MB
