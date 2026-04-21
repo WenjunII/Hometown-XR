@@ -73,7 +73,7 @@ else:
     DEVICE = "cpu"
 
 # Multiprocessing settings
-# 7 workers as requested by the user
+# 8 workers optimized for performance and stability
 MAX_WORKERS = 7
 # Max number of paragraphs to send to matcher in one go (prevents memory spikes)
 MAX_PARAGRAPHS_PER_BATCH = 5000

@@ -1,9 +1,4 @@
-# Common Crawl Home/Belonging Extractor (RTX 4090 Optimized)
-
-> [!IMPORTANT]
-> This folder contains a version of the extractor specifically configured for machines with an **NVIDIA RTX 4090**. 
-> - **MAX_WORKERS**: Set to `7` for optimal balance on this specific hardware.
-> - **GPU Acceleration**: Pre-configured to leverage CUDA for massive throughput.
+# Common Crawl Home/Belonging Extractor
 
 A local, resumable Python application that extracts multilingual paragraphs about **home**, **hometown**, **belonging**, **roots**, **childhood**, **diaspora**, and **nostalgia** from Common Crawl web archive datasets spanning 2008–2026.
 
