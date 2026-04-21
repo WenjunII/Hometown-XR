@@ -73,7 +73,7 @@ else:
     DEVICE = "cpu"
 
 # Multiprocessing settings
-# 20 workers optimized for RTX 4090 to leverage higher VRAM and compute
-MAX_WORKERS = 20
+# 7 workers as requested by the user
+MAX_WORKERS = 7
 # Max number of paragraphs to send to matcher in one go (prevents memory spikes)
 MAX_PARAGRAPHS_PER_BATCH = 5000

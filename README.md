@@ -39,6 +39,16 @@ If you just want to read the extracted multilingual paragraphs, **you do not nee
 
 ---
 
+## 🚀 Multi-Hardware Support
+
+This repository includes pre-configured versions optimized for different hardware setups:
+
+- **[RTX 4090 Version](./4090/)**: Optimized for high-end NVIDIA RTX 4090 GPUs.
+  - Configured with `MAX_WORKERS = 7` for stable, massive throughput.
+  - Includes pre-synced progress and output for rapid deployment.
+
+---
+
 ## Dataset Coverage
 
 Supports **all 122+ Common Crawl datasets** from 2008 to present:
