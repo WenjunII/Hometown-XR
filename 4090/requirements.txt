@@ -1,0 +1,8 @@
+warcio>=1.7.4
+requests>=2.31.0
+sentence-transformers>=2.2.2
+fasttext-wheel>=0.9.2
+torch>=2.0.0
+tqdm>=4.65.0
+boto3>=1.34.0
+numpy<2.0.0
