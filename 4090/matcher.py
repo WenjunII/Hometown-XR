@@ -259,12 +259,6 @@ class NarrativeFilter:
         "login", "sign up", "password", "create account",
         "shopping cart", "add to cart", "buy now", "price:",
         "copyright ©", "all rights reserved", "contact us",
-        "gedcom", "family tree builder", "myheritage", "ancestry.com",
-        "genealogy", "hostelworld", "booking.com", "tripadvisor", "agoda",
-        "shuttle", "airport transfer", "check-in", "check-out", "reception",
-        "arrival instructions", "how to get there", "directions", "map",
-        "latitude", "longitude", "gps", "station", "stop", "train", "bus",
-        "forget password", "sign in", "log in", "reserve", "confirmation",
         # Lyric Indicators
         "lyrics by", "songwriter", "produced by", "official video",
         "discography", "sheet music", "official audio", "feat.",
@@ -274,21 +268,6 @@ class NarrativeFilter:
         "don't miss out", "apply now", "subscribe today", "free trial",
         "money back guarantee", "bestseller", "click here", "buy it now",
         "curriculum vitae", "resume", "cv", "portfolio",
-    ]
-
-    # Sequences that often indicate site navigation or language pickers
-    _NAVIGATION_SEQUENCES = [
-        # Months (English)
-        "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december",
-        # Months (Chinese)
-        "1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月",
-        # Languages
-        "english", "french", "german", "italian", "spanish", "czech", "danish",
-        "dutch", "finnish", "norwegian", "polish", "portuguese", "swedish",
-        "chinese", "korean", "japanese", "russian", "turkish", "vietnamese",
-        "英语", "法语", "德语", "意大利语", "西班牙语", "捷克", "丹麦", "荷兰语",
-        "芬兰语", "挪威语", "波兰语", "葡萄牙语", "瑞典语", "中文", "韩语", "日语", "俄语",
     ]
 
     _LYRIC_REGEX_PATTERNS = [
@@ -309,7 +288,6 @@ class NarrativeFilter:
 
         self._narrative_phrases_lower = [p.lower() for p in self._NARRATIVE_PHRASES]
         self._negative_indicators_lower = [p.lower() for p in self._NEGATIVE_INDICATORS]
-        self._nav_sequences_lower = [p.lower() for p in self._NAVIGATION_SEQUENCES]
 
         self._lyric_regexes = []
         for pat in self._LYRIC_REGEX_PATTERNS:
@@ -323,39 +301,8 @@ class NarrativeFilter:
             f"{len(self._FIRST_PERSON_SUBSTRINGS)} substring markers, "
             f"{len(self._narrative_phrases_lower)} narrative phrases, "
             f"{len(self._negative_indicators_lower)} negative indicators, "
-            f"{len(self._nav_sequences_lower)} nav markers"
+            f"{len(self._lyric_regexes)} lyric regex patterns"
         )
-
-    def _is_navigation_or_form(self, text: str) -> bool:
-        """
-        Check if the text is likely site navigation, a language picker,
-        or a complex form rather than a narrative paragraph.
-        """
-        text_lower = text.lower()
-        
-        # 1. Check for language/month picker density
-        nav_count = 0
-        for marker in self._nav_sequences_lower:
-            if marker in text_lower:
-                nav_count += 1
-        
-        if nav_count >= 5:
-            return True
-
-        # 2. Check for high symbol density (typical of menus/footer links)
-        # Ratio of non-alphanumeric chars (excluding spaces) to total length
-        symbols = re.sub(r'[a-zA-Z0-9\s\u4e00-\u9fff]', '', text)
-        if len(text) > 100:
-            symbol_ratio = len(symbols) / len(text)
-            if symbol_ratio > 0.15:
-                return True
-
-        # 3. Check for "Label: Value" or "Label [Input]" patterns
-        # Look for many colons or brackets followed by short text
-        if text.count(':') > 5 or text.count('|') > 5:
-            return True
-
-        return False
 
     def _is_repetitive(self, text: str) -> bool:
         """
@@ -397,20 +344,16 @@ class NarrativeFilter:
         # check negative indicators first (fail fast if strong signal)
         for neg in self._negative_indicators_lower:
             if neg in text_lower:
-                return -50  # Hard penalty for institutional/commercial markers
+                return -20  # Increased penalty for institutional/commercial markers
 
         # Check regex-based lyric markers
         for pattern in self._lyric_regexes:
             if pattern.search(text):
-                return -50  # Hard stop for explicit lyric markers
+                return -20  # Hard stop for explicit lyric markers
 
         # Check for repetitive structures
         if self._is_repetitive(text):
-            return -50  # Hard stop for choruses
-
-        # Check for navigation/form signals
-        if self._is_navigation_or_form(text):
-            return -50  # Hard stop for site navigation
+            return -20  # Hard stop for choruses
 
         # Check regex-based pronoun patterns (Latin scripts)
         for pattern in self._pronoun_patterns:
@@ -426,7 +369,7 @@ class NarrativeFilter:
         # Check narrative phrases (strong signal, worth more)
         for phrase in self._narrative_phrases_lower:
             if phrase in text_lower:
-                count += 3  # Increased weight for strong narrative phrases
+                count += 2  # narrative phrases are weighted higher
 
         return count
 
