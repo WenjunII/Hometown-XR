@@ -126,7 +126,13 @@ python main.py run --crawl CC-MAIN-2026-12 --limit 5
 python main.py status
 ```
 
-Shows overall and per-crawl progress including files completed, matches found, and percentage done.
+Shows overall and per-crawl progress including files completed, matches found, and percentage done. **Update (April 2026):** Status checks are now non-destructive and can be run safely while a crawl is in progress without interfering with active workers. Includes a new **Processing** indicator to track real-time task distribution.
+
+### Stability & Session Management
+
+- **Resumable Tracking**: Uses SQLite to track every file. If interrupted, just run the same command to resume.
+- **Auto-Recovery**: Tasks stuck in "Processing" for over 1 hour (due to a crash or force-quit) are automatically reset to "Pending" on the next run.
+- **Safe Signal Handling**: Cleanly handles `Ctrl+C` to ensure database integrity and process cleanup.
 
 ### Adjust Semantic Threshold
 

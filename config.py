@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 # ── Project Paths ────────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
 OUTPUT_DIR = DATA_DIR / "output"
 MODELS_DIR = DATA_DIR / "models"
@@ -73,7 +73,7 @@ else:
     DEVICE = "cpu"
 
 # Multiprocessing settings
-# 12 workers optimized for RTX 3080 to prevent resource exhaustion
-MAX_WORKERS = 12
+# 8 workers optimized for performance and stability
+MAX_WORKERS = 8
 # Max number of paragraphs to send to matcher in one go (prevents memory spikes)
 MAX_PARAGRAPHS_PER_BATCH = 5000

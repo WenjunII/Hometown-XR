@@ -23,6 +23,7 @@ import signal
 import os
 import random
 import re
+import sys
 import shutil
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed, FIRST_COMPLETED, wait
@@ -59,7 +60,7 @@ def _init_worker(shutdown_event):
     _worker_shutdown_event = shutdown_event
     
     # Stagger initialization to prevent VRAM spikes on Windows
-    # (prevents all 12 workers from grabbing 700MB at once)
+    # (prevents all 8 workers from grabbing 700MB at once)
     time.sleep(random.uniform(0, 5))
     
     import warnings
@@ -372,6 +373,7 @@ def show_status():
     print(f"  Total files:       {summary['total_files']}")
     print(f"  Completed:         {summary['completed']}")
     print(f"  Pending:           {summary['pending']}")
+    print(f"  Processing:        {summary['processing']}")
     print(f"  Failed:            {summary['failed']}")
     print(f"  Progress:          {summary['progress_pct']:.2f}%")
     print(f"  ----------------------")

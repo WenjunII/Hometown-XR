@@ -9,7 +9,7 @@ Supports per-crawl tracking for processing multiple crawls.
 
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from config import DB_PATH
 
@@ -68,12 +68,17 @@ class ProgressTracker:
             conn.close()
 
     def _recover_stuck(self):
-        """Reset any files stuck in 'processing' state (from a crash)."""
+        """Reset any files stuck in 'processing' state for more than 1 hour (from a crash)."""
         conn = self._get_conn()
         try:
+            # Only recover files that started processing more than 1 hour ago
+            # This prevents status checks from interfering with an active run
+            an_hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+            
             cursor = conn.execute(
-                "UPDATE processing_state SET status = 'pending' "
-                "WHERE status = 'processing'"
+                "UPDATE processing_state SET status = 'pending', started_at = NULL "
+                "WHERE status = 'processing' AND started_at < ?",
+                (an_hour_ago,)
             )
             if cursor.rowcount > 0:
                 logger.info(
@@ -186,58 +191,50 @@ class ProgressTracker:
         conn = self._get_conn()
         try:
             if crawl_id is not None:
-                where = "WHERE crawl_id = ?"
-                params = (crawl_id,)
-                completed_where = "WHERE status = 'completed' AND crawl_id = ?"
+                # Stats for a specific crawl
+                query = """
+                    SELECT 
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                        SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
+                        COALESCE(SUM(records_processed), 0) as total_records,
+                        COALESCE(SUM(matches_found), 0) as total_matches
+                    FROM processing_state
+                    WHERE crawl_id = ?
+                """
+                row = conn.execute(query, (crawl_id,)).fetchone()
             else:
-                where = ""
-                params = ()
-                completed_where = "WHERE status = 'completed'"
+                # Overall stats
+                query = """
+                    SELECT 
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+                        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                        SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
+                        COALESCE(SUM(records_processed), 0) as total_records,
+                        COALESCE(SUM(matches_found), 0) as total_matches
+                    FROM processing_state
+                """
+                row = conn.execute(query).fetchone()
 
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM processing_state {where}",
-                params
-            ).fetchone()[0]
-
-            completed = conn.execute(
-                f"SELECT COUNT(*) FROM processing_state {where.replace('WHERE', 'WHERE status = %s AND' % repr('completed') if where else 'WHERE status = %s' % repr('completed'))}".replace('%s', '?') if False else
-                f"SELECT COUNT(*) FROM processing_state "
-                f"{'WHERE status = ? AND crawl_id = ?' if crawl_id is not None else 'WHERE status = ?'}",
-                ('completed', crawl_id) if crawl_id is not None else ('completed',)
-            ).fetchone()[0]
-
-            failed = conn.execute(
-                f"SELECT COUNT(*) FROM processing_state "
-                f"{'WHERE status = ? AND crawl_id = ?' if crawl_id is not None else 'WHERE status = ?'}",
-                ('failed', crawl_id) if crawl_id is not None else ('failed',)
-            ).fetchone()[0]
-
-            pending = conn.execute(
-                f"SELECT COUNT(*) FROM processing_state "
-                f"{'WHERE status = ? AND crawl_id = ?' if crawl_id is not None else 'WHERE status = ?'}",
-                ('pending', crawl_id) if crawl_id is not None else ('pending',)
-            ).fetchone()[0]
-
-            total_records = conn.execute(
-                f"SELECT COALESCE(SUM(records_processed), 0) "
-                f"FROM processing_state {completed_where}",
-                (crawl_id,) if crawl_id is not None else ()
-            ).fetchone()[0]
-
-            total_matches = conn.execute(
-                f"SELECT COALESCE(SUM(matches_found), 0) "
-                f"FROM processing_state {completed_where}",
-                (crawl_id,) if crawl_id is not None else ()
-            ).fetchone()[0]
+            if not row or row["total"] == 0:
+                return {
+                    "total_files": 0, "completed": 0, "failed": 0, "pending": 0,
+                    "processing": 0, "total_records": 0, "total_matches": 0, "progress_pct": 0
+                }
 
             return {
-                "total_files": total,
-                "completed": completed,
-                "failed": failed,
-                "pending": pending,
-                "total_records": total_records,
-                "total_matches": total_matches,
-                "progress_pct": (completed / total * 100) if total > 0 else 0,
+                "total_files": row["total"],
+                "completed": row["completed"],
+                "failed": row["failed"],
+                "pending": row["pending"],
+                "processing": row["processing"],
+                "total_records": row["total_records"],
+                "total_matches": row["total_matches"],
+                "progress_pct": (row["completed"] / row["total"] * 100) if row["total"] > 0 else 0,
             }
         finally:
             conn.close()
