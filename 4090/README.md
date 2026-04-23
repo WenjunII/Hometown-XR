@@ -246,31 +246,27 @@ python review.py
 
 ---
 
-## Project Structure
+## 🚀 4090 Optimized Version
+This version is pre-tuned for the **NVIDIA RTX 4090**, utilizing 22GB+ VRAM and 7 parallel workers for maximum stable throughput.
+
+### 🔄 Unified Data Store
+This environment is linked to the **root `data/` folder**. 
+- It shares the same `progress.db` as the 3080 workstation.
+- You can switch between workstations by syncing via GitHub.
+- See **[HANDOFF.md](../HANDOFF.md)** for instructions.
+
+---
+
+## Project Structure (4090)
 
 ```
-cc-home-extractor/
-├── main.py               ← CLI entry point (run / status / list)
-├── config.py              ← Tunable settings (thresholds, paths, model names)
-├── crawl_catalog.py       ← Catalog of all 122 Common Crawl datasets
-├── keywords.py            ← 441 multilingual keywords across 18 languages
-├── concepts.py            ← 20 semantic anchor sentences
-├── downloader.py          ← HTTP streaming for WET/ARC files
-├── processor.py           ← WET text parser + ARC HTML-to-text extractor
-├── matcher.py             ← Three-stage hybrid matcher (keyword + semantic + narrative)
-├── language_detector.py   ← FastText wrapper (176 languages)
-├── progress.py            ← SQLite-based resumable progress tracker
-├── output.py              ← JSONL writer (gzip, organized by language)
-├── export_md.py           ← Markdown exporter for extracted records
-├── review.py              ← Helper script to inspect output quality
-├── requirements.txt       ← Python dependencies
-├── .gitignore             ← Excludes data/models/ from version control
-└── data/                  ← Application data
-    ├── progress.db        ← SQLite state database (synced to Git)
-    ├── models/            ← Downloaded ML models (excluded from Git due to size)
-    ├── exports/           ← Markdown exports (synced to Git)
-    └── output/            ← Extracted results (synced to Git)
+cc-home-extractor/4090/
+├── main.py               ← 4090 entry point
+├── config.py              ← Hardware-tuned for 4090 (MAX_WORKERS=7)
+├── ...                    ← logic files (synced with root)
+└── data/ (Linked)         ← Points to the shared root /data folder
 ```
+
 
 ---
 

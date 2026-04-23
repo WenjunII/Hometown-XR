@@ -41,13 +41,21 @@ If you just want to read the extracted multilingual paragraphs, **you do not nee
 
 ## 🚀 Multi-Hardware Support
 
-This repository includes pre-configured versions optimized for different hardware setups:
+This repository is optimized for dual-workstation high-performance extraction.
 
-- **[RTX 4090 Version](./4090/)**: Optimized for high-end NVIDIA RTX 4090 GPUs.
-  - Configured with `MAX_WORKERS = 7` for stable, massive throughput.
-  - Includes pre-synced progress and output for rapid deployment.
+- **Root Version (RTX 3080)**: Optimized for 3080 GPUs (`MAX_WORKERS = 8`).
+- **[RTX 4090 Version](./4090/)**: Optimized for 4090 GPUs (`MAX_WORKERS = 7`).
+
+### 🔄 Cross-Workstation Synchronization (Handoff)
+The project is configured with a **Unified Data Store**. Both the 3080 and 4090 environments share the same `data/progress.db` and output results. This allows you to:
+1. Start a crawl on your 3080.
+2. Sync to GitHub.
+3. Pull and resume immediately on your 4090 without losing progress.
+
+See **[HANDOFF.md](./HANDOFF.md)** for the step-by-step synchronization guide.
 
 ---
+
 
 ## Dataset Coverage
 
