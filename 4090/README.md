@@ -14,11 +14,11 @@ WET/ARC File → Split into Paragraphs → Keyword Pre-Filter → Semantic Scori
 
 1. **Keyword Pre-Filter** — Scans each paragraph for any of 441 multilingual keywords covering home, belonging, roots, childhood, nostalgia, diaspora, and exile. Eliminates ~99% of irrelevant content instantly.
 2. **Semantic Similarity Scoring** — Encodes remaining candidates with a multilingual sentence-transformer and compares them against 20 personal narrative concept anchors via cosine similarity. Filters out false positives like "home page" or "home button."
-3. **Narrative Voice Filter** — (Refined) Checks passing paragraphs for first-person pronouns ("I", "my", "我", "yo") and storytelling indicators ("I remember", "when I grew up") in 18+ languages. **New in April 2026:** Now includes aggressive exclusion for song lyrics (repetitive structure detection), advertisements (commercial keyword filtering), and institutional noise (e.g., "wikipedia", "privacy policy") to ensure high precision and eliminate non-personal data.
+3. **Narrative Voice Filter** — (Refined) Checks passing paragraphs for first-person pronouns ("I", "my", "我", "yo") and storytelling indicators ("I remember", "when I grew up") in 18+ languages. **High-Precision Update (April 2026):** Now includes aggressive exclusion for institutional noise (genealogy databases like MyHeritage, travel directions like HostelWorld), site navigation (language pickers, month lists), and song lyrics to ensure only authentic personal stories are retained.
 
 No LLM is used. The two ML models are local and high-performance:
 - **GPU Accelerated**: If an NVIDIA GPU (RTX 3080/4090, etc.) is detected, semantic matches run on CUDA for massive throughput.
-- **Optimized Multiprocessing**: (Enhanced) Uses staggered worker initialization and adaptive batching to ensure stability on Windows even with 8+ parallel processes.
+- **Optimized Multiprocessing**: (Enhanced) Uses staggered worker initialization and adaptive batching to ensure stability on Windows with **7 parallel processes** (Optimized for RTX 4090).
 
 | Model | Size | Purpose |
 |-------|------|---------|
@@ -273,13 +273,13 @@ All settings are in `config.py`:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `SEMANTIC_THRESHOLD` | `0.40` | Min cosine similarity to accept a match |
+| `SEMANTIC_THRESHOLD` | `0.45` | Min cosine similarity to accept a match |
 | `MIN_PARAGRAPH_LENGTH` | `150` | Skip paragraphs shorter than this (chars) |
 | `MAX_PARAGRAPH_LENGTH` | `5000` | Skip paragraphs longer than this (chars) |
-| `ENCODING_BATCH_SIZE` | `32` | Batch size for sentence-transformer |
+| `ENCODING_BATCH_SIZE` | `128` | Batch size for sentence-transformer |
 | `DEFAULT_CRAWL_ID` | `CC-MAIN-2026-12` | Default crawl when `--crawl` is omitted |
 | `LANG_DETECTION_THRESHOLD` | `0.5` | Min confidence for language detection |
-| `MIN_NARRATIVE_INDICATORS` | `5` | Min unique narrative signals required |
+| `MIN_NARRATIVE_INDICATORS` | `8` | Min unique narrative signals required |
 | `_NEGATIVE_INDICATORS` | (list) | Blacklisted institutional/commercial words |
 
 ---
@@ -368,11 +368,11 @@ Recommended workflow: run with `--limit 10`, inspect output with `python review.
 - **Parallel GPU Acceleration**: Distributes file processing across 20+ workers for massive throughput.
 - **Three-Stage Filtering**: Combines fast keyword pre-filtering (Stage 1), deep semantic matching (Stage 2), and narrative voice detection with **hard exclusion for song lyrics (choruses), advertisements, and non-narrative copy** (Stage 3).
 
-| Metric | Estimate (RTX 3080 + 8 Workers) |
+| Metric | Estimate (RTX 4090 + 7 Workers) |
 |--------|----------|
 | **Matching Startup** | **Near-instant** (via Streaming + Batched DB) |
-| **Throughput** | ~20,000–40,000 pages/minute |
-| **VRAM Usage** | ~11 GB (8 workers) |
+| **Throughput** | ~25,000–50,000 pages/minute |
+| **VRAM Usage** | ~22 GB (7 workers) |
 | **RAM Usage** | Stable (via Keyword Pre-filtering) |
 
 > **Requirement:** Use `numpy<2.0.0` to ensure compatibility with `sentence-transformers`.
