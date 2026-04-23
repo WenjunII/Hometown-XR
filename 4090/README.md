@@ -19,6 +19,7 @@ WET/ARC File → Split into Paragraphs → Keyword Pre-Filter → Semantic Scori
 No LLM is used. The two ML models are local and high-performance:
 - **GPU Accelerated**: If an NVIDIA GPU (RTX 3080/4090, etc.) is detected, semantic matches run on CUDA for massive throughput.
 - **Optimized Multiprocessing**: (Enhanced) Uses staggered worker initialization and adaptive batching to ensure stability on Windows with **7 parallel processes** (Optimized for RTX 4090).
+- **Data Integrity (April 2026)**: All pre-extracted data in this folder has been retroactively re-filtered through the high-precision pipeline (Threshold 0.45, Narrative 8+) to remove institutional noise and commercial metadata.
 
 | Model | Size | Purpose |
 |-------|------|---------|
