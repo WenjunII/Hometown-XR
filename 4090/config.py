@@ -7,7 +7,7 @@ from pathlib import Path
 
 # ── Project Paths ────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent
-DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR = PROJECT_ROOT.parent / "data"
 OUTPUT_DIR = DATA_DIR / "output"
 MODELS_DIR = DATA_DIR / "models"
 DB_PATH = DATA_DIR / "progress.db"
