@@ -1,7 +1,7 @@
 # Extracted Concepts: Home & Belonging
 
 **Language:** `en`
-**Total Matches:** 317
+**Total Matches:** 323
 
 ---
 
@@ -1700,6 +1700,17 @@
 ---
 
 ### 155. Match Score: 0.486
+- **Keywords:** `home town`
+- **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
+- **Source:** [http://www.nizkor.org/ftp.cgi/people/ftp.cgi?people/m/mueller.filip/muller.002](http://www.nizkor.org/ftp.cgi/people/ftp.cgi?people/m/mueller.filip/muller.002)
+- **Capture Date:** 2013-05-21T21:08:05Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> I, on the other hand, had not yet reached that point of despair. Of course, I had no illusions: I knew with certainty that a dreadful end awaited me. But I was not yet ready to capitulate. The more menacing death grew, the stronger grew my will to survive. My every thought, every fibre of my being, was concentrated on only one thing: to stay alive, one minute, one hour, one day, one week. But not to die. I was still young, after all. The memory of my parents, my family and my early youth in my home town had faded. I was obsessed and dominated by the determination that I must not die. The heap of dead bodies which I had seen and which I was made to help remove only served to strengthen my determination to do everything possible not to perish in the same way; not to have to lie under a heap of dead bodies; not to be pushed into the oven, prodded with an iron fork and, ultimately, changed into smoke and ashes. Anything but that ! I only wanted one thing: to go on living. Sometime, somehow, there might be a chance to get out of here. But if I wanted to survive there was only one thing: I must submit and carry out every single order. It was only by adopting this attitude that a man was able to carry on his ghastly trade in the crematorium of Auschwitz.
+
+---
+
+### 156. Match Score: 0.486
 - **Keywords:** `nostalgi, homeland, nostalgia`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://conservativehippie.tumblr.com/post/3042616266](http://conservativehippie.tumblr.com/post/3042616266)
@@ -1710,7 +1721,7 @@
 
 ---
 
-### 156. Match Score: 0.485
+### 157. Match Score: 0.485
 - **Keywords:** `homesick`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://mamievandoren.com/apocalypse1.html](http://mamievandoren.com/apocalypse1.html)
@@ -1721,7 +1732,7 @@
 
 ---
 
-### 157. Match Score: 0.485
+### 158. Match Score: 0.485
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'Being part of the diaspora means I am caught between cultures, always longing for a home that may no longer exist as I remember.'
 - **Source:** [http://www.mandalawi.blogspot.com/2013/01/kurd-on-her-way-to-harvard.html](http://www.mandalawi.blogspot.com/2013/01/kurd-on-her-way-to-harvard.html)
@@ -1732,7 +1743,7 @@
 
 ---
 
-### 158. Match Score: 0.485
+### 159. Match Score: 0.485
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://marley-barbie.tumblr.com/](http://marley-barbie.tumblr.com/)
@@ -1743,7 +1754,7 @@
 
 ---
 
-### 159. Match Score: 0.484
+### 160. Match Score: 0.484
 - **Keywords:** `upbringing, ancestry, heritage`
 - **Concept Anchor:** 'My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from.'
 - **Source:** [http://www.cunninghamsculpture.com/Fernclip9.html](http://www.cunninghamsculpture.com/Fernclip9.html)
@@ -1754,7 +1765,7 @@
 
 ---
 
-### 160. Match Score: 0.484
+### 161. Match Score: 0.484
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://memoryrain.tumblr.com/post/22423708850/tsurende-every-heart-by-boa-i-love-this-song](http://memoryrain.tumblr.com/post/22423708850/tsurende-every-heart-by-boa-i-love-this-song)
@@ -1765,7 +1776,7 @@
 
 ---
 
-### 161. Match Score: 0.484
+### 162. Match Score: 0.484
 - **Keywords:** `esilio`
 - **Concept Anchor:** 'As an immigrant, I carry two worlds inside me. My heart is split between the country I left and the one I now call home.'
 - **Source:** [http://guilt-kill.tumblr.com/post/26891851760](http://guilt-kill.tumblr.com/post/26891851760)
@@ -1776,7 +1787,7 @@
 
 ---
 
-### 162. Match Score: 0.484
+### 163. Match Score: 0.484
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://infomotions.com/etexts/gutenberg/dirs/1/7/9/0/17901/17901.htm](http://infomotions.com/etexts/gutenberg/dirs/1/7/9/0/17901/17901.htm)
@@ -1787,7 +1798,7 @@
 
 ---
 
-### 163. Match Score: 0.484
+### 164. Match Score: 0.484
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'When I returned to the town where I spent my childhood, I felt overwhelming emotion and a deep sense of connection.'
 - **Source:** [http://motivateus.com/stories/loveone.htm](http://motivateus.com/stories/loveone.htm)
@@ -1798,7 +1809,7 @@
 
 ---
 
-### 164. Match Score: 0.483
+### 165. Match Score: 0.483
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://pendulating.tumblr.com/post/19620022976/i-just-had-a-really-good-moment-with-a-group-of](http://pendulating.tumblr.com/post/19620022976/i-just-had-a-really-good-moment-with-a-group-of)
@@ -1809,7 +1820,7 @@
 
 ---
 
-### 165. Match Score: 0.482
+### 166. Match Score: 0.482
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.well.com/conf/inkwell.vue/topics/317/Bruce-Sterling-State-of-the-Worl-page04.html](http://www.well.com/conf/inkwell.vue/topics/317/Bruce-Sterling-State-of-the-Worl-page04.html)
@@ -1820,7 +1831,7 @@
 
 ---
 
-### 166. Match Score: 0.482
+### 167. Match Score: 0.482
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.picketnews.com/articlePrint.asp?id=12572](http://www.picketnews.com/articlePrint.asp?id=12572)
@@ -1831,7 +1842,7 @@
 
 ---
 
-### 167. Match Score: 0.482
+### 168. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/35](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/35)
@@ -1842,7 +1853,7 @@
 
 ---
 
-### 168. Match Score: 0.482
+### 169. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/15](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/15)
@@ -1853,7 +1864,7 @@
 
 ---
 
-### 169. Match Score: 0.482
+### 170. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/27](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/27)
@@ -1864,7 +1875,7 @@
 
 ---
 
-### 170. Match Score: 0.482
+### 171. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/48](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/48)
@@ -1875,7 +1886,7 @@
 
 ---
 
-### 171. Match Score: 0.482
+### 172. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/39](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/39)
@@ -1886,7 +1897,7 @@
 
 ---
 
-### 172. Match Score: 0.482
+### 173. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/1](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/1)
@@ -1897,7 +1908,7 @@
 
 ---
 
-### 173. Match Score: 0.482
+### 174. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/245](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/245)
@@ -1908,7 +1919,7 @@
 
 ---
 
-### 174. Match Score: 0.482
+### 175. Match Score: 0.482
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/64](http://digital.library.msstate.edu/cdm/singleitem/collection/charm/id/7252/rec/64)
@@ -1919,7 +1930,7 @@
 
 ---
 
-### 175. Match Score: 0.481
+### 176. Match Score: 0.481
 - **Keywords:** `nostalgia, nostalgi`
 - **Concept Anchor:** 'I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner.'
 - **Source:** [http://samonsterx.tumblr.com/post/28750474344/a-thing-my-parents-need-to-understand-the-time](http://samonsterx.tumblr.com/post/28750474344/a-thing-my-parents-need-to-understand-the-time)
@@ -1930,7 +1941,7 @@
 
 ---
 
-### 176. Match Score: 0.481
+### 177. Match Score: 0.481
 - **Keywords:** `homesick`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://annneliesss.tumblr.com/](http://annneliesss.tumblr.com/)
@@ -1941,7 +1952,7 @@
 
 ---
 
-### 177. Match Score: 0.481
+### 178. Match Score: 0.481
 - **Keywords:** `ancestral home, ancestral`
 - **Concept Anchor:** 'I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner.'
 - **Source:** [http://www.asstr.org/files/Collections/nifty/gay/sf-fantasy/vladimir-the-kewl](http://www.asstr.org/files/Collections/nifty/gay/sf-fantasy/vladimir-the-kewl)
@@ -1949,17 +1960,6 @@
 - **Crawl Dataset:** `CC-MAIN-2013-20`
 
 > Brushing aside history which most school children do and unfortunately most politicians try to make also brings me to the here and now. I'd been living (pause for laugh) in Canada which is the home of the undead in more ways than one for many years with occasional trips into the USA, Mexico and even further south but I came back to my ancestral home. I like Europe, decadent and gloomy, cold and damp or of late very hot and sunny. By the way vampires or the undead don't have to keep out of the sun, that was Bram Stoker and Steven King, there are vampires amongst and you should keep a small mirror handy. One thing we can't do and that is cast a reflection so we keep out of barbers but then again our hair doesn't grow, we stay the same as the instance we were turned.
-
----
-
-### 178. Match Score: 0.481
-- **Keywords:** `growing up`
-- **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
-- **Source:** [http://thisis-myst0ry.tumblr.com/post/27793271815/the-beginning](http://thisis-myst0ry.tumblr.com/post/27793271815/the-beginning)
-- **Capture Date:** 2013-05-18T14:23:55Z
-- **Crawl Dataset:** `CC-MAIN-2013-20`
-
-> I am Anonymous , I will remain anonymous. I am Anonymous , I will remain anonymous. Home Ask The Beginning No one truly understands the way I feel about my mother. I honestly don’t give a fuck because they don’t need to understand. I got taken away from my Mo ( mom ) when i was 9 years old. I was so happy to leave; in a way i felt free. I didn’t understand then why I felt that way .. but I do now. Growing up with her I knew and experienced things a little girl never should. At a young age i saw Mo give out sexual favors for $$ . My earliest memory was at KiKi’s 16th birthday party in Atlanta , I was 4 years old then. Mo was in a rush to leave but i didn’t want to leave without my ice cream & cake. She made me leave. We ended up going to some man’s apartment. He must have had a son because they sat me in a room that was decorated for a little boy. They had put on a movie for me & told me they were going to go talk. Some time had passed & the movie was over. I didn’t know how to work the VCR so i went to get Mo for help. I walked over to the bedroom she was in and turned the knob, but the door was locked. I heard moans, and screams come from within the room. I knew exactly what she was doing , at 4 years old I knew my mother was having sex with that man . I stood there & cried until she finally opened the door. She opened the door & asked me why I was crying. I just remember me crying and screaming sex. The last thing i remember from that day is us getting ready to leave & the man sticking money into her bra as we were walking to the door. Posted 9 months ago on Sunday 22 July 12.
 
 ---
 
@@ -1986,6 +1986,17 @@
 ---
 
 ### 181. Match Score: 0.481
+- **Keywords:** `growing up`
+- **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
+- **Source:** [http://thisis-myst0ry.tumblr.com/post/27793271815/the-beginning](http://thisis-myst0ry.tumblr.com/post/27793271815/the-beginning)
+- **Capture Date:** 2013-05-18T14:23:55Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> I am Anonymous , I will remain anonymous. I am Anonymous , I will remain anonymous. Home Ask The Beginning No one truly understands the way I feel about my mother. I honestly don’t give a fuck because they don’t need to understand. I got taken away from my Mo ( mom ) when i was 9 years old. I was so happy to leave; in a way i felt free. I didn’t understand then why I felt that way .. but I do now. Growing up with her I knew and experienced things a little girl never should. At a young age i saw Mo give out sexual favors for $$ . My earliest memory was at KiKi’s 16th birthday party in Atlanta , I was 4 years old then. Mo was in a rush to leave but i didn’t want to leave without my ice cream & cake. She made me leave. We ended up going to some man’s apartment. He must have had a son because they sat me in a room that was decorated for a little boy. They had put on a movie for me & told me they were going to go talk. Some time had passed & the movie was over. I didn’t know how to work the VCR so i went to get Mo for help. I walked over to the bedroom she was in and turned the knob, but the door was locked. I heard moans, and screams come from within the room. I knew exactly what she was doing , at 4 years old I knew my mother was having sex with that man . I stood there & cried until she finally opened the door. She opened the door & asked me why I was crying. I just remember me crying and screaming sex. The last thing i remember from that day is us getting ready to leave & the man sticking money into her bra as we were walking to the door. Posted 9 months ago on Sunday 22 July 12.
+
+---
+
+### 182. Match Score: 0.481
 - **Keywords:** `exile`
 - **Concept Anchor:** 'My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from.'
 - **Source:** [http://groups.yahoo.com/group/Kresy-Siberia/messages/26855?xm=1&m=e&l=1](http://groups.yahoo.com/group/Kresy-Siberia/messages/26855?xm=1&m=e&l=1)
@@ -1996,7 +2007,7 @@
 
 ---
 
-### 182. Match Score: 0.481
+### 183. Match Score: 0.481
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://www.tngennet.org/cherokee_by_blood/intro.htm](http://www.tngennet.org/cherokee_by_blood/intro.htm)
@@ -2007,7 +2018,7 @@
 
 ---
 
-### 183. Match Score: 0.481
+### 184. Match Score: 0.481
 - **Keywords:** `my roots`
 - **Concept Anchor:** 'Home for me is not just a building — it is the feeling of being among my own people, where I am understood and loved.'
 - **Source:** [http://www.poetrysoup.com/poems_poets/poem_detail.aspx?ID=383097](http://www.poetrysoup.com/poems_poets/poem_detail.aspx?ID=383097)
@@ -2018,7 +2029,7 @@
 
 ---
 
-### 184. Match Score: 0.481
+### 185. Match Score: 0.481
 - **Keywords:** `birthplace`
 - **Concept Anchor:** 'When I returned to the town where I spent my childhood, I felt overwhelming emotion and a deep sense of connection.'
 - **Source:** [http://ireland-information.com/sep08.htm](http://ireland-information.com/sep08.htm)
@@ -2029,7 +2040,7 @@
 
 ---
 
-### 185. Match Score: 0.481
+### 186. Match Score: 0.481
 - **Keywords:** `hometown, nostalgi`
 - **Concept Anchor:** 'I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner.'
 - **Source:** [http://take-hart.com/wordpress/2011/08/oh-little-town-here-i-come/](http://take-hart.com/wordpress/2011/08/oh-little-town-here-i-come/)
@@ -2040,7 +2051,7 @@
 
 ---
 
-### 186. Match Score: 0.481
+### 187. Match Score: 0.481
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'As an immigrant, I carry two worlds inside me. My heart is split between the country I left and the one I now call home.'
 - **Source:** [http://imjusthearingwhatyousay.tumblr.com/tagged/she-literally-was-the-best-friend-that-I-don't-think-I'll-ever-have-again](http://imjusthearingwhatyousay.tumblr.com/tagged/she-literally-was-the-best-friend-that-I-don't-think-I'll-ever-have-again)
@@ -2051,7 +2062,7 @@
 
 ---
 
-### 187. Match Score: 0.481
+### 188. Match Score: 0.481
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'As an immigrant, I carry two worlds inside me. My heart is split between the country I left and the one I now call home.'
 - **Source:** [http://imjusthearingwhatyousay.tumblr.com/tagged/i-really-wonder-if-anyone-realizes-how-much-having-to-lose-her-has-affected-me](http://imjusthearingwhatyousay.tumblr.com/tagged/i-really-wonder-if-anyone-realizes-how-much-having-to-lose-her-has-affected-me)
@@ -2062,7 +2073,18 @@
 
 ---
 
-### 188. Match Score: 0.480
+### 189. Match Score: 0.480
+- **Keywords:** `ancestry, growing up, heritage`
+- **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
+- **Source:** [http://movabletypo.net/cshell/archives/2004/03-17-04.identity.html](http://movabletypo.net/cshell/archives/2004/03-17-04.identity.html)
+- **Capture Date:** 2013-05-21T20:10:39Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> cshell: Identity cshell cshell's meanderings « Testing... | Main | St. Patty's Day » March 17, 2004 Identity Can you know who you are if you don't have any mirrors that reflect you, or if there are mirrors, but they don't reflect you accurately? I think that growing up as a person of mixed heritage, I always felt a little lost. There was nothing in my world growing up that reflected my reality in a way that I recognized, could connect to. There was nothing there that I could use to see the similarities and differences between me and the people around me, that I could use to form opinions of how I fit into the world. More... At play, the Barbie dolls certainly weren't reflection of my world. How could anyone that beautiful, with the big blue eyes, and wonderful white-blonde hair, with all of those cool possessions reflect the reality of this little brown girl in a white world? My almond shaped eyes didn't hold makeup the way Barbie's did, no matter how much I wanted them to. While my friends looked like Barbie, and the boys I was dreamy-eyed over looked like Ken, none of them looked like me. While I loved the world of Cinderella and Snow White, which even as a child I knew were only make-believe, I knew even then that they weren't fairy tales that I could embrace. For clearly the Prince was going to find the beautiful blue eyed girls, or the girls with the creamy white skin and pass over the girl with the chocolate brown eyes and honey brown skin. The fairy godmother must be helping other pretty little white girls, which was why she wasn't coming to my house to grant wishes. The games I played with other girls (house and jacks and jump rope and hopscotch), what if those were too tame? Where were the girls in the games I wanted to play (Star Wars and cowboys and indians and ball games) so that I could see how I could learn to be a woman in those roles? Was there no room for people who weren't black or white in far off galaxies? Were the brown people always the ones who were conquered? Was there only competition in physical games, and no sharing? How was I to know what to do with my life as a grown-up? What if my dream jobs expanded beyond the playtime worlds of teacher, stewardess, secretary - how could I aspire to be more when that's what I thought women were supposed to be and do, when that's the roles I saw them taking in my world? If you asked me as a child what I wanted to be, they stayed within a woman's realm, within the realm of what I'd always seen, because it took me a while to realize in my head what my heart already knew - I was better than the boys at many "boy things". And that my white friends weren't any better any any scholastic things than I was. I think it's wonderful that toys today are starting to reflect all colors in the spectrum. The fact that there's even a section on amazon for ethnic dolls is in some ways great (and in some ways disturbing). I think it's great in that children can see themselves reflected when they play, not someone that they'll never look like. Then again, this is disturbing to me somehow in that none of the dolls appear to be of mixed race, so the makers are still a bit off. (Or maybe because the text, while accurately reflecting what the makers are trying to do, and even backing up what I'm saying, makes me want to puke. "Realistic playmates that are designed to create a culturally diverse play environment and to encourage identification and positive self-concept.") I'm hoping that toys today (or maybe parents today) are also helping their children see both into and beyond gender and ethnicity (and maybe someday beyond sexual orientation) to learn how to be themselves. I hope that other children of mixed race growing up today don't choose to align themselves with only one half of their ancestry, forsaking the other half, just because that's the dominant world that they live in. I'm still learning how to be myself, regardless of what's modeled around me, every day. Obviously I found the work that I'm good at, that I'm respected for, and I found the world where I'm included. And I know that those things weren't dependent on my brown skin, but on my ability and my drive and my heart and my listening to experience (mine and others') to guide me. Posted by cshell at March 17, 2004 09:23 PM Comments Hmm. After the rather typical to-be-expected angst, I just decided that being hapa is rather nice because you can pick and choose from several different cultures. I consider that a luxury, really. And I wouldn't worry too much about the next generation of hapa kids. There's so damn many of them, I think we'll see some emerging hapa culture. Look to Hawaii for a preview of how CA will be in 20 years, and the rest of the country a few decades after that. (I do love meeting hapas from Hawaii, because they never have any issues about it. It's just normal.) Posted by: metamanda at March 18, 2004 08:44 PM
+
+---
+
+### 190. Match Score: 0.480
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://thereluctantmama.tumblr.com/tagged/baby-wearing](http://thereluctantmama.tumblr.com/tagged/baby-wearing)
@@ -2073,7 +2095,7 @@
 
 ---
 
-### 189. Match Score: 0.480
+### 191. Match Score: 0.480
 - **Keywords:** `growing up, nostalgi`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://wholefoodsmarket.com/print/node/22530](http://wholefoodsmarket.com/print/node/22530)
@@ -2084,7 +2106,7 @@
 
 ---
 
-### 190. Match Score: 0.480
+### 192. Match Score: 0.480
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
 - **Source:** [http://missatl.tumblr.com/post/14787158504/christmas-blues](http://missatl.tumblr.com/post/14787158504/christmas-blues)
@@ -2095,7 +2117,7 @@
 
 ---
 
-### 191. Match Score: 0.479
+### 193. Match Score: 0.479
 - **Keywords:** `patria`
 - **Concept Anchor:** 'When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions.'
 - **Source:** [http://www.asstr.org/files/Collections/Alt.Sex.Stories.Moderated/Year1999/22024](http://www.asstr.org/files/Collections/Alt.Sex.Stories.Moderated/Year1999/22024)
@@ -2106,7 +2128,7 @@
 
 ---
 
-### 192. Match Score: 0.479
+### 194. Match Score: 0.479
 - **Keywords:** `nostalgi`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://bootsandpine.com/britt-wray/](http://bootsandpine.com/britt-wray/)
@@ -2117,7 +2139,7 @@
 
 ---
 
-### 193. Match Score: 0.479
+### 195. Match Score: 0.479
 - **Keywords:** `saudade`
 - **Concept Anchor:** 'Being part of the diaspora means I am caught between cultures, always longing for a home that may no longer exist as I remember.'
 - **Source:** [http://trocaideias.tumblr.com/post/1128311982/saudade](http://trocaideias.tumblr.com/post/1128311982/saudade)
@@ -2128,7 +2150,7 @@
 
 ---
 
-### 194. Match Score: 0.479
+### 196. Match Score: 0.479
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://lists.ansteorra.org/pipermail/loch-ruadh-ansteorra.org/2002-March/006996.html](http://lists.ansteorra.org/pipermail/loch-ruadh-ansteorra.org/2002-March/006996.html)
@@ -2139,7 +2161,7 @@
 
 ---
 
-### 195. Match Score: 0.478
+### 197. Match Score: 0.478
 - **Keywords:** `where i grew up`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://caitlinhackett.carbonmade.com/about](http://caitlinhackett.carbonmade.com/about)
@@ -2150,7 +2172,7 @@
 
 ---
 
-### 196. Match Score: 0.478
+### 198. Match Score: 0.478
 - **Keywords:** `hem`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://plagiarist.com/poetry/2946/](http://plagiarist.com/poetry/2946/)
@@ -2161,7 +2183,7 @@
 
 ---
 
-### 197. Match Score: 0.478
+### 199. Match Score: 0.478
 - **Keywords:** `exile`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://infomotions.com/etexts/gutenberg/dirs/1/4/3/3/14334/14334.htm](http://infomotions.com/etexts/gutenberg/dirs/1/4/3/3/14334/14334.htm)
@@ -2172,7 +2194,7 @@
 
 ---
 
-### 198. Match Score: 0.477
+### 200. Match Score: 0.477
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
 - **Source:** [http://www.asstr.org/files/Collections/Alt.Sex.Stories.Moderated/Year2000/27692](http://www.asstr.org/files/Collections/Alt.Sex.Stories.Moderated/Year2000/27692)
@@ -2183,7 +2205,7 @@
 
 ---
 
-### 199. Match Score: 0.477
+### 201. Match Score: 0.477
 - **Keywords:** `childhood home`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://rebekkafederle.com/home.html](http://rebekkafederle.com/home.html)
@@ -2194,7 +2216,7 @@
 
 ---
 
-### 200. Match Score: 0.477
+### 202. Match Score: 0.477
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://sisyphean-life.tumblr.com/](http://sisyphean-life.tumblr.com/)
@@ -2205,7 +2227,7 @@
 
 ---
 
-### 201. Match Score: 0.476
+### 203. Match Score: 0.476
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I finally found a community where I truly belong. For the first time in my life, I feel accepted and at home.'
 - **Source:** [http://www.ayhanyavuz.com/4501.html](http://www.ayhanyavuz.com/4501.html)
@@ -2216,7 +2238,7 @@
 
 ---
 
-### 202. Match Score: 0.476
+### 204. Match Score: 0.476
 - **Keywords:** `home country`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://www.vault.com/wps/portal/usa/education/essay-detail/?schoolId=3541](http://www.vault.com/wps/portal/usa/education/essay-detail/?schoolId=3541)
@@ -2227,7 +2249,7 @@
 
 ---
 
-### 203. Match Score: 0.476
+### 205. Match Score: 0.476
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions.'
 - **Source:** [http://bcbrown.net/bluegrass/chronicles/articles/mofa/](http://bcbrown.net/bluegrass/chronicles/articles/mofa/)
@@ -2238,7 +2260,7 @@
 
 ---
 
-### 204. Match Score: 0.475
+### 206. Match Score: 0.475
 - **Keywords:** `ancestral`
 - **Concept Anchor:** 'When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions.'
 - **Source:** [http://blogs.ancestry.com/circle/?p=871](http://blogs.ancestry.com/circle/?p=871)
@@ -2249,7 +2271,7 @@
 
 ---
 
-### 205. Match Score: 0.475
+### 207. Match Score: 0.475
 - **Keywords:** `birthplace`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://www.archive.org/stream/departmentofstat431960unit/departmentofstat431960unit_djvu.txt](http://www.archive.org/stream/departmentofstat431960unit/departmentofstat431960unit_djvu.txt)
@@ -2260,7 +2282,7 @@
 
 ---
 
-### 206. Match Score: 0.475
+### 208. Match Score: 0.475
 - **Keywords:** `hometown, growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://homepages.gac.edu/~jimholte/aboutme.htm](http://homepages.gac.edu/~jimholte/aboutme.htm)
@@ -2271,7 +2293,7 @@
 
 ---
 
-### 207. Match Score: 0.475
+### 209. Match Score: 0.475
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://healingheart.org/insights.htm](http://healingheart.org/insights.htm)
@@ -2282,7 +2304,7 @@
 
 ---
 
-### 208. Match Score: 0.475
+### 210. Match Score: 0.475
 - **Keywords:** `ancestry`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://www.nizkor.org/ftp.cgi/people/ftp.cgi?people/s/smith.brian.r/1996/smith.1296](http://www.nizkor.org/ftp.cgi/people/ftp.cgi?people/s/smith.brian.r/1996/smith.1296)
@@ -2293,7 +2315,18 @@
 
 ---
 
-### 209. Match Score: 0.474
+### 211. Match Score: 0.475
+- **Keywords:** `fatherland`
+- **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
+- **Source:** [http://infomotions.com/etexts/gutenberg/dirs/etext04/7sccn10.htm](http://infomotions.com/etexts/gutenberg/dirs/etext04/7sccn10.htm)
+- **Capture Date:** 2013-05-21T19:16:36Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> "Could I forget you? The thought of you has ever been with me, strengthening me amid the dangers of travel, and has been a comfort to my soul's loneliness in foreign lands. The thoughts of you have neutralized the lotus-effect of Europe, which erases from the memories of so many of our countrymen the hopes and misfortunes of our fatherland. In dreams I saw you standing on the shore at Manila, gazing at the far horizon wrapped in the warm light of the early dawn. I heard the slow, sad song that awoke in me sleeping affections and called back to the memory of my heart the first years of our childhood, our joys, our pleasures, and all that happy past which you gave life to while you were in our town. It seemed to me that you were the fairy, the spirit, the poetic incarnation of my fatherland, beautiful, unaffected, lovable, frank, a true daughter of the Philippines, that beautiful land which unites with the imposing virtues of the mother country, Spain, the admirable qualities of a young people, as you unite in your being all that is beautiful and lovely, the inheritance of both races" so indeed the love of you and that of my fatherland have become fused into one.
+
+---
+
+### 212. Match Score: 0.474
 - **Keywords:** `my roots`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://holdfastdarling.tumblr.com/post/25334244175/it-feels-like-ive-been-having-to-constantly-pinch](http://holdfastdarling.tumblr.com/post/25334244175/it-feels-like-ive-been-having-to-constantly-pinch)
@@ -2304,7 +2337,7 @@
 
 ---
 
-### 210. Match Score: 0.474
+### 213. Match Score: 0.474
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'I finally found a community where I truly belong. For the first time in my life, I feel accepted and at home.'
 - **Source:** [http://www.adventuresofafreesoul.com/social.html](http://www.adventuresofafreesoul.com/social.html)
@@ -2315,7 +2348,7 @@
 
 ---
 
-### 211. Match Score: 0.473
+### 214. Match Score: 0.473
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://www.geo.brown.edu/geocourses/ge_0022/people.html](http://www.geo.brown.edu/geocourses/ge_0022/people.html)
@@ -2326,7 +2359,7 @@
 
 ---
 
-### 212. Match Score: 0.473
+### 215. Match Score: 0.473
 - **Keywords:** `homesick, homesickness`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.boardingschoolsurvivors.co.uk/extract_2.html](http://www.boardingschoolsurvivors.co.uk/extract_2.html)
@@ -2337,7 +2370,7 @@
 
 ---
 
-### 213. Match Score: 0.473
+### 216. Match Score: 0.473
 - **Keywords:** `ancestral`
 - **Concept Anchor:** 'My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from.'
 - **Source:** [http://miketodd.net/tree/index.htm](http://miketodd.net/tree/index.htm)
@@ -2348,7 +2381,7 @@
 
 ---
 
-### 214. Match Score: 0.473
+### 217. Match Score: 0.473
 - **Keywords:** `ancestral, ancestry`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://dml.cmnh.org/1998Dec/msg00434.html](http://dml.cmnh.org/1998Dec/msg00434.html)
@@ -2359,7 +2392,7 @@
 
 ---
 
-### 215. Match Score: 0.473
+### 218. Match Score: 0.473
 - **Keywords:** `ancestry`
 - **Concept Anchor:** 'My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from.'
 - **Source:** [http://madinpursuit.com/Family/General/FamineRefugees.htm](http://madinpursuit.com/Family/General/FamineRefugees.htm)
@@ -2370,7 +2403,7 @@
 
 ---
 
-### 216. Match Score: 0.473
+### 219. Match Score: 0.473
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://pilgrimlog.tumblr.com/tagged/bachelors](http://pilgrimlog.tumblr.com/tagged/bachelors)
@@ -2381,7 +2414,7 @@
 
 ---
 
-### 217. Match Score: 0.473
+### 220. Match Score: 0.473
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://pilgrimlog.tumblr.com/tagged/modesty](http://pilgrimlog.tumblr.com/tagged/modesty)
@@ -2392,7 +2425,7 @@
 
 ---
 
-### 218. Match Score: 0.472
+### 221. Match Score: 0.472
 - **Keywords:** `upbringing`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://www.well.com/conf/inkwell.vue/topics/66/Katie-Granju-Attachment-Parentin-page02.html](http://www.well.com/conf/inkwell.vue/topics/66/Katie-Granju-Attachment-Parentin-page02.html)
@@ -2403,7 +2436,7 @@
 
 ---
 
-### 219. Match Score: 0.471
+### 222. Match Score: 0.471
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://digitalmedia.fws.gov/cdm/singleitem/collection/document/id/1043/rec/21](http://digitalmedia.fws.gov/cdm/singleitem/collection/document/id/1043/rec/21)
@@ -2414,7 +2447,7 @@
 
 ---
 
-### 220. Match Score: 0.471
+### 223. Match Score: 0.471
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://digitalmedia.fws.gov/cdm/singleitem/collection/document/id/1043/rec/34](http://digitalmedia.fws.gov/cdm/singleitem/collection/document/id/1043/rec/34)
@@ -2425,7 +2458,7 @@
 
 ---
 
-### 221. Match Score: 0.471
+### 224. Match Score: 0.471
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://digitalmedia.fws.gov/cdm/singleitem/collection/document/id/1043/rec/30](http://digitalmedia.fws.gov/cdm/singleitem/collection/document/id/1043/rec/30)
@@ -2436,7 +2469,7 @@
 
 ---
 
-### 222. Match Score: 0.471
+### 225. Match Score: 0.471
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I have moved many times in my life, but the meaning of home — that deep yearning for a place to call my own — never fades.'
 - **Source:** [http://www.well.com/conf/inkwell.vue/topics/323/Daniel-McGinn-House-Lust-America-page01.html](http://www.well.com/conf/inkwell.vue/topics/323/Daniel-McGinn-House-Lust-America-page01.html)
@@ -2447,7 +2480,7 @@
 
 ---
 
-### 223. Match Score: 0.471
+### 226. Match Score: 0.471
 - **Keywords:** `nostalgi`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://forgottengamer.blogspot.com/2009_08_30_archive.html](http://forgottengamer.blogspot.com/2009_08_30_archive.html)
@@ -2458,7 +2491,7 @@
 
 ---
 
-### 224. Match Score: 0.471
+### 227. Match Score: 0.471
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
 - **Source:** [http://everylittlekiss.tumblr.com/](http://everylittlekiss.tumblr.com/)
@@ -2469,7 +2502,7 @@
 
 ---
 
-### 225. Match Score: 0.470
+### 228. Match Score: 0.470
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from.'
 - **Source:** [http://blankfamilyalbum.com/](http://blankfamilyalbum.com/)
@@ -2480,7 +2513,7 @@
 
 ---
 
-### 226. Match Score: 0.470
+### 229. Match Score: 0.470
 - **Keywords:** `nostalgi`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://www.chasingthelight.com/blog/?p=2597](http://www.chasingthelight.com/blog/?p=2597)
@@ -2491,7 +2524,7 @@
 
 ---
 
-### 227. Match Score: 0.469
+### 230. Match Score: 0.469
 - **Keywords:** `nostalgi, where i grew up`
 - **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
 - **Source:** [http://contronym.tumblr.com/post/30020484547/more-ive-been-really-nostalgic-today-and-i](http://contronym.tumblr.com/post/30020484547/more-ive-been-really-nostalgic-today-and-i)
@@ -2502,7 +2535,7 @@
 
 ---
 
-### 228. Match Score: 0.469
+### 231. Match Score: 0.469
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised.'
 - **Source:** [http://portiapie.tumblr.com/post/15341760269/transitions](http://portiapie.tumblr.com/post/15341760269/transitions)
@@ -2513,7 +2546,7 @@
 
 ---
 
-### 229. Match Score: 0.469
+### 232. Match Score: 0.469
 - **Keywords:** `my roots`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://www.strangebrew.com/newyorker.html](http://www.strangebrew.com/newyorker.html)
@@ -2524,7 +2557,7 @@
 
 ---
 
-### 230. Match Score: 0.469
+### 233. Match Score: 0.469
 - **Keywords:** `hem`
 - **Concept Anchor:** 'I have moved many times in my life, but the meaning of home — that deep yearning for a place to call my own — never fades.'
 - **Source:** [http://blog.fabric.com/2007/10/autumn_fashion.html](http://blog.fabric.com/2007/10/autumn_fashion.html)
@@ -2535,7 +2568,7 @@
 
 ---
 
-### 231. Match Score: 0.469
+### 234. Match Score: 0.469
 - **Keywords:** `upbringing`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://herebymyself.blogspot.com/](http://herebymyself.blogspot.com/)
@@ -2546,7 +2579,7 @@
 
 ---
 
-### 232. Match Score: 0.468
+### 235. Match Score: 0.468
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://ohhla.com/anonymous/dres/sureshot/trukings.drs.txt](http://ohhla.com/anonymous/dres/sureshot/trukings.drs.txt)
@@ -2557,7 +2590,7 @@
 
 ---
 
-### 233. Match Score: 0.468
+### 236. Match Score: 0.468
 - **Keywords:** `home country`
 - **Concept Anchor:** 'I have moved many times in my life, but the meaning of home — that deep yearning for a place to call my own — never fades.'
 - **Source:** [http://www.habitat.org/print/blog/article083.aspx](http://www.habitat.org/print/blog/article083.aspx)
@@ -2568,7 +2601,7 @@
 
 ---
 
-### 234. Match Score: 0.468
+### 237. Match Score: 0.468
 - **Keywords:** `home country`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://www.loveushateus.com/vote.asp?id=430&cbRating=2](http://www.loveushateus.com/vote.asp?id=430&cbRating=2)
@@ -2579,7 +2612,7 @@
 
 ---
 
-### 235. Match Score: 0.467
+### 238. Match Score: 0.467
 - **Keywords:** `hometown, upbringing`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://lievolution.tumblr.com/post/27501389970/being-sad-can-be-good-for-you](http://lievolution.tumblr.com/post/27501389970/being-sad-can-be-good-for-you)
@@ -2590,7 +2623,7 @@
 
 ---
 
-### 236. Match Score: 0.467
+### 239. Match Score: 0.467
 - **Keywords:** `homesick`
 - **Concept Anchor:** 'I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner.'
 - **Source:** [http://www.davyking.com/loneliness.htm](http://www.davyking.com/loneliness.htm)
@@ -2601,7 +2634,7 @@
 
 ---
 
-### 237. Match Score: 0.467
+### 240. Match Score: 0.467
 - **Keywords:** `childhood home`
 - **Concept Anchor:** 'I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised.'
 - **Source:** [http://www.oldflutes.com/Kathy&Rick/sounds.htm](http://www.oldflutes.com/Kathy&Rick/sounds.htm)
@@ -2612,7 +2645,7 @@
 
 ---
 
-### 238. Match Score: 0.467
+### 241. Match Score: 0.467
 - **Keywords:** `return home`
 - **Concept Anchor:** 'I finally found a community where I truly belong. For the first time in my life, I feel accepted and at home.'
 - **Source:** [http://www.vault.com/wps/portal/usa/education/essay-detail/?schoolId=3979](http://www.vault.com/wps/portal/usa/education/essay-detail/?schoolId=3979)
@@ -2623,7 +2656,7 @@
 
 ---
 
-### 239. Match Score: 0.466
+### 242. Match Score: 0.466
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://dailybucketlist.tumblr.com/](http://dailybucketlist.tumblr.com/)
@@ -2634,7 +2667,7 @@
 
 ---
 
-### 240. Match Score: 0.466
+### 243. Match Score: 0.466
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://andrewbuck.carbonmade.com/about](http://andrewbuck.carbonmade.com/about)
@@ -2645,7 +2678,18 @@
 
 ---
 
-### 241. Match Score: 0.466
+### 244. Match Score: 0.466
+- **Keywords:** `exile`
+- **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
+- **Source:** [http://comewhat-comemay.tumblr.com/post/32377175505/despair](http://comewhat-comemay.tumblr.com/post/32377175505/despair)
+- **Capture Date:** 2013-05-21T19:55:37Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> my History of Feeling my History of Feeling messagepersonaltheme Combo of personal and general. in time of daffodils(who know the goal of living is to grow) forgetting why,remember how Despair.”The goal of grace is not just about getting healed; it’s about being liberated to fulfill God’s purpose.” I go back to a year and a half ago, and I think about healing. My heart had grown hard with apathetic wanderings, and it eventually broke. But I was healed. I was filled with Light again, you know? But it’s been a long time since I’ve felt free. It’s been a long time since I’ve felt liberation. “Pain requires that we ask hard questions. Faith allows us to listen. Grace enables us to fulfill.” So I ask and I listen and I refuse fulfillment. Spite grows strong. And… Sometimes, I just sit and wonder if others go through this. Honestly. I have no doubts that people do. But where are they?! Where are those who struggle so greatly with their own nature? Where are those who can be real to several and not lose parts of their hearts? Where are those who have grown strong, only to fall, only to grow strong again, only to fall again (a fall that reaped consequences and pain and skeptical looks and judgement)? Where are the lost? Are they just “hypocritical” in their faith? Are they labeled as emotional, wishy-washy believers? Is that being an emotional stumbling block? Part of not judging others is being able to take honesty and truth and love it regardless. Part of not judging myself is staring at my scars and forgiving myself. Right? Letting go of histrionics. Letting go of pretending to know anything, of being able to actually express my thoughts. Reality. And I ask. How many times are people honest with their own struggles to others? Maybe tons? Maybe never? Why do I hide my face and my heart so consistently? And when I show it, I show only parts, I show spite and a complete lack of love. I show vulnerability in a tainted form. Not purely. And is this being human? Are these complex emotional responses part of humanity? “Our faith journey is about loving others or preparing us to love others… it is about focusing on maturing rather than on not sinning.” “But seek the welfare of the city where I have sent you into exile, and pray to the Lord on its behalf, for in its welfare you will find your welfare.” Jeremiah 29:7 One of my favorite verses. God told them to seek the welfare of the city where they were exiled. Exiled. And He wanted them to help it find joy and happiness. To thrive. To find success. When they were taken there against their will. I bet they felt lost. I bet they were angry. And He said to pray. I have more eloquent thoughts on this verse, but. The primary thought of the moment is. What humble and selfless warriors. I think about them as tainted as well. As scarred and broken. And it makes me smile. Because they were still told to pray. Pray and pray and pray and pray for welfare. I am a lost sheep, I am a broken doll, I feel hate/loathing at times. I am loved. By One. And the Goodness of Him tears up and burns my heart. But maybe it’s time I got a new heart anyways. Posted 7 months ago with 1 noteTagged as: personal faith doubts struggle conflict God Christianity healing broken despair spite honesty View Notes comewhat-comemay posted this
+
+---
+
+### 245. Match Score: 0.466
 - **Keywords:** `homesick`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://library.thinkquest.org/19749/data/us-brzil.htm](http://library.thinkquest.org/19749/data/us-brzil.htm)
@@ -2656,7 +2700,7 @@
 
 ---
 
-### 242. Match Score: 0.465
+### 246. Match Score: 0.465
 - **Keywords:** `home town`
 - **Concept Anchor:** 'I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner.'
 - **Source:** [http://www.sing365.com/music/lyric.nsf/PrintLyrics?openForm&ParentUnid=730403C4C78D21AC48256A7D0024A3F3](http://www.sing365.com/music/lyric.nsf/PrintLyrics?openForm&ParentUnid=730403C4C78D21AC48256A7D0024A3F3)
@@ -2667,7 +2711,7 @@
 
 ---
 
-### 243. Match Score: 0.464
+### 247. Match Score: 0.464
 - **Keywords:** `upbringing`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.archive.org/stream/savingpointreyes00behrrich/savingpointreyes00behrrich_djvu.txt](http://www.archive.org/stream/savingpointreyes00behrrich/savingpointreyes00behrrich_djvu.txt)
@@ -2678,7 +2722,7 @@
 
 ---
 
-### 244. Match Score: 0.464
+### 248. Match Score: 0.464
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'Home for me is where I feel safe and truly myself. It is the place I return to in my mind when the world feels too big.'
 - **Source:** [http://www.writeclickscrapbook.com/photos/our_hometowns_july_10/overtonjulyfeelslikehome.html](http://www.writeclickscrapbook.com/photos/our_hometowns_july_10/overtonjulyfeelslikehome.html)
@@ -2689,7 +2733,7 @@
 
 ---
 
-### 245. Match Score: 0.464
+### 249. Match Score: 0.464
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'As an immigrant, I carry two worlds inside me. My heart is split between the country I left and the one I now call home.'
 - **Source:** [http://dsplaced.com/?p=47](http://dsplaced.com/?p=47)
@@ -2700,7 +2744,7 @@
 
 ---
 
-### 246. Match Score: 0.464
+### 250. Match Score: 0.464
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://landismom.wordpress.com/2005/04/11/](http://landismom.wordpress.com/2005/04/11/)
@@ -2711,7 +2755,7 @@
 
 ---
 
-### 247. Match Score: 0.463
+### 251. Match Score: 0.463
 - **Keywords:** `home town`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://www.mmi.hu/romaoszt/kepzomuv/eletr_en/17ote_en.htm](http://www.mmi.hu/romaoszt/kepzomuv/eletr_en/17ote_en.htm)
@@ -2722,7 +2766,7 @@
 
 ---
 
-### 248. Match Score: 0.462
+### 252. Match Score: 0.462
 - **Keywords:** `homesick`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://infomotions.com/etexts/gutenberg/dirs/etext96/valma10.htm](http://infomotions.com/etexts/gutenberg/dirs/etext96/valma10.htm)
@@ -2733,7 +2777,7 @@
 
 ---
 
-### 249. Match Score: 0.462
+### 253. Match Score: 0.462
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.theandersoncrewblog.com/p/blog-page_8779.html](http://www.theandersoncrewblog.com/p/blog-page_8779.html)
@@ -2744,7 +2788,7 @@
 
 ---
 
-### 250. Match Score: 0.462
+### 254. Match Score: 0.462
 - **Keywords:** `sense of belonging, heritage`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://www.aceweekly.com/Backissues_ACEWeekly/000831/ontheblock000831.html](http://www.aceweekly.com/Backissues_ACEWeekly/000831/ontheblock000831.html)
@@ -2755,7 +2799,7 @@
 
 ---
 
-### 251. Match Score: 0.461
+### 255. Match Score: 0.461
 - **Keywords:** `hometown, homeland`
 - **Concept Anchor:** 'Home for me is where I feel safe and truly myself. It is the place I return to in my mind when the world feels too big.'
 - **Source:** [http://mainer8.tumblr.com/tagged/home](http://mainer8.tumblr.com/tagged/home)
@@ -2766,7 +2810,7 @@
 
 ---
 
-### 252. Match Score: 0.461
+### 256. Match Score: 0.461
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://www.artandarchitecture.org.uk/stories/hemingway_housing/hemingway_housing02.html](http://www.artandarchitecture.org.uk/stories/hemingway_housing/hemingway_housing02.html)
@@ -2777,7 +2821,7 @@
 
 ---
 
-### 253. Match Score: 0.461
+### 257. Match Score: 0.461
 - **Keywords:** `childhood memories, childhood home`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://blog.gigwalk.com/post/24418458967/how-i-used-gigwalk-to-see-my-childhood-home](http://blog.gigwalk.com/post/24418458967/how-i-used-gigwalk-to-see-my-childhood-home)
@@ -2788,7 +2832,7 @@
 
 ---
 
-### 254. Match Score: 0.460
+### 258. Match Score: 0.460
 - **Keywords:** `ancestral`
 - **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
 - **Source:** [http://insaf.net/pipermail/sacw_insaf.net/2006/002377.html](http://insaf.net/pipermail/sacw_insaf.net/2006/002377.html)
@@ -2799,7 +2843,7 @@
 
 ---
 
-### 255. Match Score: 0.460
+### 259. Match Score: 0.460
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My grandmother used to tell me stories about our ancestors. Those stories made me proud of where my family comes from.'
 - **Source:** [http://lists101.his.com/pipermail/smartmarriages/2010-July/004327.html](http://lists101.his.com/pipermail/smartmarriages/2010-July/004327.html)
@@ -2810,7 +2854,7 @@
 
 ---
 
-### 256. Match Score: 0.460
+### 260. Match Score: 0.460
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.chilliwacklife.com/clients/teamhagkull/brad.html](http://www.chilliwacklife.com/clients/teamhagkull/brad.html)
@@ -2821,7 +2865,7 @@
 
 ---
 
-### 257. Match Score: 0.460
+### 261. Match Score: 0.460
 - **Keywords:** `hometown, where i grew up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://www.heyronblog.com/post/34056370109/my-hometown-wilkes-barre-pa-which-is-about-20](http://www.heyronblog.com/post/34056370109/my-hometown-wilkes-barre-pa-which-is-about-20)
@@ -2832,7 +2876,7 @@
 
 ---
 
-### 258. Match Score: 0.459
+### 262. Match Score: 0.459
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://www.whitelinehotels.com/blog/why-cant-we-be-ourselves-like-we-were-yesterday/](http://www.whitelinehotels.com/blog/why-cant-we-be-ourselves-like-we-were-yesterday/)
@@ -2843,7 +2887,18 @@
 
 ---
 
-### 259. Match Score: 0.459
+### 263. Match Score: 0.459
+- **Keywords:** `growing up`
+- **Concept Anchor:** 'I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised.'
+- **Source:** [http://ohhla.com/anonymous/kidfrost/still_up/para_mi.kid.txt](http://ohhla.com/anonymous/kidfrost/still_up/para_mi.kid.txt)
+- **Capture Date:** 2013-05-21T19:09:28Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> I'll remember you forever There will never be another one like you, no never As I think about your smile and reminice for a while You taught me so many things when I was a young child I remember growing up when things would get tough You would do anything to come cheer me up We would talk, hold hands at the beach in the sand Those are the memories I have as an older man You and all your beautiful flowers in the backyard for hours And my grandpa with a cigar building a bike For any kid who didn't have a new one to ride He loved my grandma and he devoted his life To the lady he loved his beautiful wife, my abuelita I will love you abuelita I promise forever And I can't wait for the day to see you and grandpa together And should a rainy day come I won't give it a chance Because I know it's you in heaven watering all the precious flowers and plants
+
+---
+
+### 264. Match Score: 0.459
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://thuyon.tumblr.com/](http://thuyon.tumblr.com/)
@@ -2854,7 +2909,7 @@
 
 ---
 
-### 260. Match Score: 0.458
+### 265. Match Score: 0.458
 - **Keywords:** `ancestry`
 - **Concept Anchor:** 'When I returned to the town where I spent my childhood, I felt overwhelming emotion and a deep sense of connection.'
 - **Source:** [http://www.archive.org/stream/francisadrianvan00vand/francisadrianvan00vand_djvu.txt](http://www.archive.org/stream/francisadrianvan00vand/francisadrianvan00vand_djvu.txt)
@@ -2865,7 +2920,7 @@
 
 ---
 
-### 261. Match Score: 0.458
+### 266. Match Score: 0.458
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://groups.yahoo.com/group/genpcncfir/messages/16746?xm=1&m=e&l=1](http://groups.yahoo.com/group/genpcncfir/messages/16746?xm=1&m=e&l=1)
@@ -2876,7 +2931,7 @@
 
 ---
 
-### 262. Match Score: 0.458
+### 267. Match Score: 0.458
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'My family was forced to leave our homeland, and starting over in a new country was the hardest thing I have ever done.'
 - **Source:** [http://freegroups.net/groups/anzac/0::696read.html](http://freegroups.net/groups/anzac/0::696read.html)
@@ -2887,7 +2942,7 @@
 
 ---
 
-### 263. Match Score: 0.457
+### 268. Match Score: 0.457
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://smilea.tumblr.com/post/20903466959/bubble](http://smilea.tumblr.com/post/20903466959/bubble)
@@ -2898,7 +2953,7 @@
 
 ---
 
-### 264. Match Score: 0.457
+### 269. Match Score: 0.457
 - **Keywords:** `patria`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://infomotions.com/etexts/gutenberg/dirs/1/9/2/8/19288/19288.htm](http://infomotions.com/etexts/gutenberg/dirs/1/9/2/8/19288/19288.htm)
@@ -2909,7 +2964,7 @@
 
 ---
 
-### 265. Match Score: 0.456
+### 270. Match Score: 0.456
 - **Keywords:** `upbringing`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://ksushimi.tumblr.com/](http://ksushimi.tumblr.com/)
@@ -2920,7 +2975,7 @@
 
 ---
 
-### 266. Match Score: 0.456
+### 271. Match Score: 0.456
 - **Keywords:** `upbringing`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://ksushimi.tumblr.com/](http://ksushimi.tumblr.com/)
@@ -2931,7 +2986,7 @@
 
 ---
 
-### 267. Match Score: 0.456
+### 272. Match Score: 0.456
 - **Keywords:** `exile`
 - **Concept Anchor:** 'When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions.'
 - **Source:** [http://infomotions.com/etexts/gutenberg/dirs/1/1/6/8/11686/11686.htm](http://infomotions.com/etexts/gutenberg/dirs/1/1/6/8/11686/11686.htm)
@@ -2942,7 +2997,7 @@
 
 ---
 
-### 268. Match Score: 0.456
+### 273. Match Score: 0.456
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://imremembering.com/tagged/nostalgiacation](http://imremembering.com/tagged/nostalgiacation)
@@ -2953,7 +3008,7 @@
 
 ---
 
-### 269. Match Score: 0.456
+### 274. Match Score: 0.456
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://imremembering.com/tagged/nostalgiacation](http://imremembering.com/tagged/nostalgiacation)
@@ -2964,7 +3019,7 @@
 
 ---
 
-### 270. Match Score: 0.456
+### 275. Match Score: 0.456
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions.'
 - **Source:** [http://www.unicorntrad.org/members/arden.html](http://www.unicorntrad.org/members/arden.html)
@@ -2975,7 +3030,7 @@
 
 ---
 
-### 271. Match Score: 0.456
+### 276. Match Score: 0.456
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://canyoudefineme.tumblr.com/tagged/can-you-define-me%3F](http://canyoudefineme.tumblr.com/tagged/can-you-define-me%3F)
@@ -2986,7 +3041,7 @@
 
 ---
 
-### 272. Match Score: 0.456
+### 277. Match Score: 0.456
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
 - **Source:** [http://www.asstr.org/files/Collections/nifty/gay/young-friends/wade-grows-up/wade-grows-up-16b](http://www.asstr.org/files/Collections/nifty/gay/young-friends/wade-grows-up/wade-grows-up-16b)
@@ -2997,7 +3052,7 @@
 
 ---
 
-### 273. Match Score: 0.455
+### 278. Match Score: 0.455
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'As an immigrant, I carry two worlds inside me. My heart is split between the country I left and the one I now call home.'
 - **Source:** [http://wanderlove.com/post/17784571716/i-never-lived-outside-a-3-hour-radius-of-my](http://wanderlove.com/post/17784571716/i-never-lived-outside-a-3-hour-radius-of-my)
@@ -3008,7 +3063,7 @@
 
 ---
 
-### 274. Match Score: 0.455
+### 279. Match Score: 0.455
 - **Keywords:** `where i grew up`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://www.custercountychief.com/print/2748?quicktabs_4=2](http://www.custercountychief.com/print/2748?quicktabs_4=2)
@@ -3019,7 +3074,18 @@
 
 ---
 
-### 275. Match Score: 0.455
+### 280. Match Score: 0.455
+- **Keywords:** `hometown, homesick`
+- **Concept Anchor:** 'After living abroad for many years, I ache with longing for my homeland and the simple life I once knew there.'
+- **Source:** [http://quietontheinside.tumblr.com/post/10699533170/things-that-suck-about-being-an-international-student](http://quietontheinside.tumblr.com/post/10699533170/things-that-suck-about-being-an-international-student)
+- **Capture Date:** 2013-05-21T19:28:32Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> I still haven't found what I'm looking for... (Things that suck about being an international student at Cal) I still haven't found what I'm looking for... ...but in the meantime, I solemnly swear that I'm up to no good. Posts tagged 'Personal' My secondary Tumblr :) Ask me anything Text 28 Notes Things that suck about being an international student at Cal Yeah, sometimes I got homesick, I miss legit Indian food, my family and friends, but none of that compares to the sheer awkwardness and annoyance I feel when subjected to the following questions/ comments. Just to clarify, this list will probably hit home with international students at all colleges, especially state schools where they’re a teeny weeny minority (and therefore an exotic species). I have started calling myself Megan when I place orders at cafes and force myself to pronounce words the American way (though it kills me to pronounce schedule as “skedule” rather than “sshedule”). It isn’t enough. I’m still subjected to these four painful scenarios on a regular basis. 1. ”I can’t believe you’re an international student! I never would’ve guessed!” Still confused about what this is supposed to imply. Does living overseas make you grow a pair of antlers or turn your skin green or have other characteristic consequences that you can spot from a mile away? 2. “You’re international?! But your English is really good!” So what?!? Why are the two mutually exclusive? My English is probably better than yours, seeing as how I use British grammar, spelling, and pronunciation, but I’ve started switching to American English just to avoid THIS conversation. I still haven’t formulated a response. Have to smile and nod awkwardly and wait to evaporate every time this happens. 3. Awkward lame small talk “Do you miss home? Why did you choose Berkeley? Are you ever homesick?” Uhhh we’re in lab and trying to finish a report in t-0.000001 hours. Yes, I get it, I let a piece of information slip but I still can’t believe that it has changed our entire topic of conversation. Why can’t we go back to discussing the physical properties of these crystals?! We’ve been lab partners for two months now, but starting this very instant, our future interactions will ALL revolve mostly around the topic of my hometown (“I love elephants! I love spicy curries! I love Bollywood movies!!!”) No, I haven’t been to the Taj Mahal. No, I don’t know how to make a biryani or curry from scratch (GASP!). Jesus Christ. Obviously this isn’t true of everyone, but when it DOES happen… God. I seriously want to shoot myself. I get that people want to make me feel better but most of the time it makes me feel like an alien life form and draws the attention of everyone around us (HARVEST YOUR DAMN CRYSTALS, PEOPLE!). Only response that works? “Yeah, I used to bathe daily in the Ganges, and then I would drink milk from the family cow and go to school on my pet elephant.” I come from a big city and cows, elephants, and the Ganges are not ubiquitous, shockingly enough. But at least it stems the flow of breathless questions. 4. “OMG you have an accent!” This one just takes the cake. SO TIRED OF THIS. Yes, yes, I do. Cool story. The shocker? SO DO YOU. If you went anywhere else in the world, YOU would be the one with the accent. EVERYbody has an accent; without pitch, tone, and inflection, we would basically sound like droning robots. Haven’t formulated an adequate response to this either. I used to be so proud of being an international student my very first semester, but these four questions, coupled with the paradigm shift in MOST people’s way of viewing me, has made me really really reluctant to reveal where I’m from. Ugh. Obviously, I’m proud of the country of my origin and I love my unique status, and I have met many people who couldn’t care less, but the reason I skirt around the topic is that I want people to know me without forming a judgement based on (largely) stereotypical preconceived notions. Sorry for this longass rant! Just had to vent. #accent #awkward #desi #foreigner #homesick #indian #international #rant #student #sucks #personal catherine25c likes this brownpeople likes this desimovement reblogged this from quietontheinside and added: born and raised in an overseas country but i still miss the real indian stuff hopeandme said: Megs! I totally understand what you mean. I’m going through the same thing except I’m not even International. So it really blows people’s minds when I say I lived in India. Then they say ALL OF THE SAME THINGS. Only more so because my accent is ameri aeogenesis said: “Yeah, I used to bathe daily in the Ganges, and then I would drink milk from the family cow and go to school on my pet elephant.” HAHAHA sorry I almost spit out my water laughing at this aeogenesis likes this quietontheinside posted this For Tumblr By Peter Vidani Theme: Papercut
+
+---
+
+### 281. Match Score: 0.455
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://www.public.iastate.edu/~dmart28/Family.htm](http://www.public.iastate.edu/~dmart28/Family.htm)
@@ -3030,7 +3096,7 @@
 
 ---
 
-### 276. Match Score: 0.455
+### 282. Match Score: 0.455
 - **Keywords:** `nostalgia, nostalgi`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://imremembering.com/tagged/authors](http://imremembering.com/tagged/authors)
@@ -3041,7 +3107,7 @@
 
 ---
 
-### 277. Match Score: 0.455
+### 283. Match Score: 0.455
 - **Keywords:** `saudade`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://hidden-glow.tumblr.com/post/27822822408](http://hidden-glow.tumblr.com/post/27822822408)
@@ -3052,7 +3118,7 @@
 
 ---
 
-### 278. Match Score: 0.455
+### 284. Match Score: 0.455
 - **Keywords:** `nostalgi`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://hidden-glow.tumblr.com/post/1077889054](http://hidden-glow.tumblr.com/post/1077889054)
@@ -3063,7 +3129,7 @@
 
 ---
 
-### 279. Match Score: 0.455
+### 285. Match Score: 0.455
 - **Keywords:** `nostalgia, nostalgi`
 - **Concept Anchor:** 'I decided to trace my family's roots back to the old country. Discovering my heritage gave me a new sense of identity.'
 - **Source:** [http://www.archive.org/stream/galleryartmagazi157121994199519961997gall/galleryartmagazi157121994199519961997gall_djvu.txt](http://www.archive.org/stream/galleryartmagazi157121994199519961997gall/galleryartmagazi157121994199519961997gall_djvu.txt)
@@ -3074,7 +3140,7 @@
 
 ---
 
-### 280. Match Score: 0.455
+### 286. Match Score: 0.455
 - **Keywords:** `childhood memories`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://afriendtoknow.tumblr.com/](http://afriendtoknow.tumblr.com/)
@@ -3085,7 +3151,7 @@
 
 ---
 
-### 281. Match Score: 0.454
+### 287. Match Score: 0.454
 - **Keywords:** `home town`
 - **Concept Anchor:** 'My family was forced to leave our homeland, and starting over in a new country was the hardest thing I have ever done.'
 - **Source:** [http://icculus.org/cgi-bin/finger/finger.pl?user=hendersa&date=2002-01-03&time=20-47-56](http://icculus.org/cgi-bin/finger/finger.pl?user=hendersa&date=2002-01-03&time=20-47-56)
@@ -3096,7 +3162,7 @@
 
 ---
 
-### 282. Match Score: 0.454
+### 288. Match Score: 0.454
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://lists.ansteorra.org/pipermail/h-needlework-ansteorra.org/1999-July/003675.html](http://lists.ansteorra.org/pipermail/h-needlework-ansteorra.org/1999-July/003675.html)
@@ -3107,7 +3173,7 @@
 
 ---
 
-### 283. Match Score: 0.454
+### 289. Match Score: 0.454
 - **Keywords:** `homeland`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://www.lyricsfreak.com/print.php?id=126017](http://www.lyricsfreak.com/print.php?id=126017)
@@ -3118,7 +3184,7 @@
 
 ---
 
-### 284. Match Score: 0.453
+### 290. Match Score: 0.453
 - **Keywords:** `homesick`
 - **Concept Anchor:** 'Home for me is where I feel safe and truly myself. It is the place I return to in my mind when the world feels too big.'
 - **Source:** [http://www.angelfire.com/oh3/kenskorner/goinghome.html](http://www.angelfire.com/oh3/kenskorner/goinghome.html)
@@ -3129,7 +3195,7 @@
 
 ---
 
-### 285. Match Score: 0.453
+### 291. Match Score: 0.453
 - **Keywords:** `saudade`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://ohbadr.tumblr.com/post/23503751611](http://ohbadr.tumblr.com/post/23503751611)
@@ -3140,7 +3206,7 @@
 
 ---
 
-### 286. Match Score: 0.453
+### 292. Match Score: 0.453
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'I was born and raised in a small town. Every time I go back, I recognize the streets and houses from my childhood.'
 - **Source:** [http://www.vault.com/wps/portal/usa/education/essay-detail/?schoolId=3541](http://www.vault.com/wps/portal/usa/education/essay-detail/?schoolId=3541)
@@ -3151,7 +3217,7 @@
 
 ---
 
-### 287. Match Score: 0.452
+### 293. Match Score: 0.452
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'When I returned to the town where I spent my childhood, I felt overwhelming emotion and a deep sense of connection.'
 - **Source:** [http://tylerklusmann.tumblr.com/post/16493096798/strange-feeling](http://tylerklusmann.tumblr.com/post/16493096798/strange-feeling)
@@ -3162,7 +3228,7 @@
 
 ---
 
-### 288. Match Score: 0.452
+### 294. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3)
@@ -3173,7 +3239,7 @@
 
 ---
 
-### 289. Match Score: 0.452
+### 295. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/20](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/20)
@@ -3184,7 +3250,7 @@
 
 ---
 
-### 290. Match Score: 0.452
+### 296. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/90](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/90)
@@ -3195,7 +3261,7 @@
 
 ---
 
-### 291. Match Score: 0.452
+### 297. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://cdm267401.cdmhost.com/cdm/singleitem/collection/p15005coll37/id/3/rec/15](http://cdm267401.cdmhost.com/cdm/singleitem/collection/p15005coll37/id/3/rec/15)
@@ -3206,7 +3272,7 @@
 
 ---
 
-### 292. Match Score: 0.452
+### 298. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/3/rec/14](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/3/rec/14)
@@ -3217,7 +3283,7 @@
 
 ---
 
-### 293. Match Score: 0.452
+### 299. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/5](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/5)
@@ -3228,7 +3294,7 @@
 
 ---
 
-### 294. Match Score: 0.452
+### 300. Match Score: 0.452
 - **Keywords:** `heritage`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/90](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/3/rec/90)
@@ -3239,7 +3305,7 @@
 
 ---
 
-### 295. Match Score: 0.452
+### 301. Match Score: 0.452
 - **Keywords:** `nostalgia, nostalgi`
 - **Concept Anchor:** 'I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised.'
 - **Source:** [http://whitenois.blogspot.com/2011/09/nostalgia-from-1960s.html](http://whitenois.blogspot.com/2011/09/nostalgia-from-1960s.html)
@@ -3250,7 +3316,7 @@
 
 ---
 
-### 296. Match Score: 0.452
+### 302. Match Score: 0.452
 - **Keywords:** `hometown`
 - **Concept Anchor:** 'I miss my hometown terribly — the familiar faces, the food, the sound of my mother tongue spoken on every corner.'
 - **Source:** [http://www.tnonline.com/print/2012/oct/02/youngs-are-remembered-saddened-town](http://www.tnonline.com/print/2012/oct/02/youngs-are-remembered-saddened-town)
@@ -3261,7 +3327,7 @@
 
 ---
 
-### 297. Match Score: 0.452
+### 303. Match Score: 0.452
 - **Keywords:** `upbringing`
 - **Concept Anchor:** 'Growing up in my parents' house, I learned the values and traditions that would stay with me for the rest of my life.'
 - **Source:** [http://groups.yahoo.com/group/jainsamachar/messages/421?xm=1&m=e&l=1](http://groups.yahoo.com/group/jainsamachar/messages/421?xm=1&m=e&l=1)
@@ -3272,7 +3338,7 @@
 
 ---
 
-### 298. Match Score: 0.452
+### 304. Match Score: 0.452
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://tayl-a.tumblr.com/](http://tayl-a.tumblr.com/)
@@ -3283,7 +3349,7 @@
 
 ---
 
-### 299. Match Score: 0.452
+### 305. Match Score: 0.452
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'I grew up in a village surrounded by fields and forests. The landscape of my hometown is etched into my memory.'
 - **Source:** [http://jolt5.tumblr.com/post/27029535625](http://jolt5.tumblr.com/post/27029535625)
@@ -3294,7 +3360,7 @@
 
 ---
 
-### 300. Match Score: 0.451
+### 306. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm267401.cdmhost.com/cdm/singleitem/collection/p15005coll37/id/18/rec/20](http://cdm267401.cdmhost.com/cdm/singleitem/collection/p15005coll37/id/18/rec/20)
@@ -3305,7 +3371,7 @@
 
 ---
 
-### 301. Match Score: 0.451
+### 307. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/18](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/18)
@@ -3316,7 +3382,7 @@
 
 ---
 
-### 302. Match Score: 0.451
+### 308. Match Score: 0.451
 - **Keywords:** `nostalgi`
 - **Concept Anchor:** 'When I visit the village where my grandparents grew up, I feel a deep connection to my family's history and traditions.'
 - **Source:** [http://www.poetrysoup.com/poems_poets/poems_by_poet_read.aspx?ID=20852](http://www.poetrysoup.com/poems_poets/poems_by_poet_read.aspx?ID=20852)
@@ -3327,7 +3393,7 @@
 
 ---
 
-### 303. Match Score: 0.451
+### 309. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm267401.cdmhost.com/cdm/singleitem/collection/p15005coll37/id/18/rec/15](http://cdm267401.cdmhost.com/cdm/singleitem/collection/p15005coll37/id/18/rec/15)
@@ -3338,7 +3404,7 @@
 
 ---
 
-### 304. Match Score: 0.451
+### 310. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/20](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/20)
@@ -3349,7 +3415,7 @@
 
 ---
 
-### 305. Match Score: 0.451
+### 311. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/9](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/9)
@@ -3360,7 +3426,7 @@
 
 ---
 
-### 306. Match Score: 0.451
+### 312. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/11](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/11)
@@ -3371,7 +3437,7 @@
 
 ---
 
-### 307. Match Score: 0.451
+### 313. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/18/rec/5](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/18/rec/5)
@@ -3382,7 +3448,7 @@
 
 ---
 
-### 308. Match Score: 0.451
+### 314. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm15005.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18](http://cdm15005.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18)
@@ -3393,7 +3459,7 @@
 
 ---
 
-### 309. Match Score: 0.451
+### 315. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/18/rec/3](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/18/rec/3)
@@ -3404,7 +3470,7 @@
 
 ---
 
-### 310. Match Score: 0.451
+### 316. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/18/rec/10](http://www.ohiomemory.org/cdm/singleitem/collection/p15005coll37/id/18/rec/10)
@@ -3415,7 +3481,7 @@
 
 ---
 
-### 311. Match Score: 0.451
+### 317. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/8](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/8)
@@ -3426,7 +3492,7 @@
 
 ---
 
-### 312. Match Score: 0.451
+### 318. Match Score: 0.451
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/7](http://cdm16007.contentdm.oclc.org/cdm/singleitem/collection/p15005coll37/id/18/rec/7)
@@ -3437,7 +3503,7 @@
 
 ---
 
-### 313. Match Score: 0.451
+### 319. Match Score: 0.451
 - **Keywords:** `home town`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://anotherhome.tumblr.com/post/4381560770/not-so-mini-mini-portrait-i-met-this-kind-man-in](http://anotherhome.tumblr.com/post/4381560770/not-so-mini-mini-portrait-i-met-this-kind-man-in)
@@ -3448,7 +3514,7 @@
 
 ---
 
-### 314. Match Score: 0.451
+### 320. Match Score: 0.451
 - **Keywords:** `childhood memories`
 - **Concept Anchor:** 'I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised.'
 - **Source:** [http://hv.greenspun.com/bboard/q-and-a-fetch-msg.tcl?msg_id=003C24](http://hv.greenspun.com/bboard/q-and-a-fetch-msg.tcl?msg_id=003C24)
@@ -3459,7 +3525,7 @@
 
 ---
 
-### 315. Match Score: 0.451
+### 321. Match Score: 0.451
 - **Keywords:** `ancestry`
 - **Concept Anchor:** 'Being part of the diaspora means I am caught between cultures, always longing for a home that may no longer exist as I remember.'
 - **Source:** [http://avriel.tumblr.com/tagged/biracial](http://avriel.tumblr.com/tagged/biracial)
@@ -3470,7 +3536,7 @@
 
 ---
 
-### 316. Match Score: 0.450
+### 322. Match Score: 0.450
 - **Keywords:** `growing up`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://www.perfect-partygames.com/kids-games.html](http://www.perfect-partygames.com/kids-games.html)
@@ -3481,7 +3547,7 @@
 
 ---
 
-### 317. Match Score: 0.450
+### 323. Match Score: 0.450
 - **Keywords:** `childhood home`
 - **Concept Anchor:** 'When I returned to the town where I spent my childhood, I felt overwhelming emotion and a deep sense of connection.'
 - **Source:** [http://lornedaniel.com/category/tags/childhood-memory](http://lornedaniel.com/category/tags/childhood-memory)

@@ -1,11 +1,22 @@
 # Extracted Concepts: Home & Belonging
 
 **Language:** `pt`
-**Total Matches:** 8
+**Total Matches:** 9
 
 ---
 
-### 1. Match Score: 0.536
+### 1. Match Score: 0.555
+- **Keywords:** `nostalgi`
+- **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
+- **Source:** [http://onlythingaboutyou.tumblr.com/post/29842976252](http://onlythingaboutyou.tumblr.com/post/29842976252)
+- **Capture Date:** 2013-05-21T20:04:09Z
+- **Crawl Dataset:** `CC-MAIN-2013-20`
+
+> The fate binds only whom he chooses. [ Gabriela Macello . 16 anos .] Dona de uma personalidade forte tenho uma estrutura frágil. Gosto de sorrir e fazer as pessoas sorrirem também. Uma grande característica é que não consigo parar um minuto, e fico mal humorada quando não me deixam dormir.. é.. essa sou eu! [ The Navigation ] Archive Ask Theme Home Uma das coisas que mais valorizo no mundo, primeiramente, é a minha família, de um modo geral, porque cada um é único pra mim. Uma outra coisa, são os meus amigos, meus amigos verdadeiros, que sempre estão do meu lado, me apoiando, me alegrando, enfim.. esses sim tem o meu carinho, meu respeito e minha confiança. São as minhas preciosidades.. ♥ « » August 20, 2012 • 126 notes Via fireworksandsmilesSource umsentimentoquearde perseguidoradesorrisos reblogged this from umsentimentoquearde darkness-ninja reblogged this from umsentimentoquearde umsentimentoquearde reblogged this from umsentimentoquearde feelings-of-a-girl-dreaming reblogged this from uma-principa-e-um-princeso onlythingaboutyou reblogged this from fireworksandsmiles aindadatempo reblogged this from hi-wonderland momentosdesesperadores reblogged this from euestoupresaemvoce euestoupresaemvoce reblogged this from apenas-sentimentos-de-um-menino topdechocolate reblogged this from de-pre-ssi-ve justrelaxforever reblogged this from agarotadacamisaxadrez de-pre-ssi-ve reblogged this from sujeitoanormal meusperfeitos-defeitos reblogged this from teu-smile nao-correr-a-tras reblogged this from agarotadacamisaxadrez princessporra reblogged this from umsentimentoquearde princessporra likes this meu-ultimo-sorriso reblogged this from umsentimentoquearde quesejasempre-felicidade reblogged this from supliciar sujeitoanormal reblogged this from umsentimentoquearde rabis-ca-r reblogged this from umsentimentoquearde supliciar reblogged this from agarotadacamisaxadrez droppedd reblogged this from umsentimentoquearde agarotadacamisaxadrez reblogged this from umsentimentoquearde teu-smile reblogged this from umsentimentoquearde benettri reblogged this from umsentimentoquearde ficapert0demim reblogged this from overgames rhays reblogged this from c-a-f-e-i-n-a-d-a garota-ri-sonha reblogged this from apenas-sentimentos-de-um-menino apenas-sentimentos-de-um-menino reblogged this from c-a-f-e-i-n-a-d-a tale-of-love reblogged this from umsentimentoquearde c-a-f-e-i-n-a-d-a reblogged this from umsentimentoquearde tomboydreamy reblogged this from persuadido tevejosonhandoeissodamedo reblogged this from cadeafelicidadequenaocheganunca vannessaalves likes this ameei-sem-ser-amada reblogged this from amoor-e-distancia im-perfei-ta reblogged this from acumulodepalavras amandoempoucaspalavras reblogged this from pequeenapoeta 17th-july reblogged this from overgames just-one-d-ream reblogged this from masmorrasdamorte mefds reblogged this from overgames por-que-comigo reblogged this from meu-pequeno-romeu everlasting-nostalgic reblogged this from persuadido c0mmitting-suicide reblogged this from semi-h3roina por-que-comigo likes this lembrancas-sonhos-perdidos reblogged this from umsentimentoquearde retrocedia reblogged this from uma-principa-e-um-princeso um-poco-de-amor reblogged this from overgames fireworksandsmiles reblogged this from quaseprinci-pe uma-principa-e-um-princeso reblogged this from remorsar enfimamor likes this meu-pequeno-romeu reblogged this from pequeenapoeta Show more notesLoading... Source: umsentimentoquearde Theme by Little Miss Cait ♥ Only At Tumblr
+
+---
+
+### 2. Match Score: 0.536
 - **Keywords:** `infância`
 - **Concept Anchor:** 'Home for me is where I feel safe and truly myself. It is the place I return to in my mind when the world feels too big.'
 - **Source:** [http://www.coisademae.blog.br/reflexoes/voltando-pra-casa/](http://www.coisademae.blog.br/reflexoes/voltando-pra-casa/)
@@ -16,7 +27,7 @@
 
 ---
 
-### 2. Match Score: 0.495
+### 3. Match Score: 0.495
 - **Keywords:** `saudade`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://dreamsandregrets.tumblr.com/](http://dreamsandregrets.tumblr.com/)
@@ -27,7 +38,7 @@
 
 ---
 
-### 3. Match Score: 0.479
+### 4. Match Score: 0.479
 - **Keywords:** `memórias de infância, infância`
 - **Concept Anchor:** 'After years of searching, I realized that belonging is not about a place but about the people who make me feel like myself.'
 - **Source:** [http://mindkel.tumblr.com/page/2](http://mindkel.tumblr.com/page/2)
@@ -38,7 +49,7 @@
 
 ---
 
-### 4. Match Score: 0.476
+### 5. Match Score: 0.476
 - **Keywords:** `infância`
 - **Concept Anchor:** 'I remember my childhood vividly — the sounds, the smells, the rhythm of daily life in the neighborhood where I was raised.'
 - **Source:** [http://telinha.blogspot.com/2004/05/voltei-infncia.html](http://telinha.blogspot.com/2004/05/voltei-infncia.html)
@@ -49,7 +60,7 @@
 
 ---
 
-### 5. Match Score: 0.470
+### 6. Match Score: 0.470
 - **Keywords:** `saudade`
 - **Concept Anchor:** 'When I finally came back to the place where I grew up after so many years away, tears streamed down my face.'
 - **Source:** [http://live4loveeee.tumblr.com/page/7](http://live4loveeee.tumblr.com/page/7)
@@ -60,7 +71,7 @@
 
 ---
 
-### 6. Match Score: 0.469
+### 7. Match Score: 0.469
 - **Keywords:** `meu lar`
 - **Concept Anchor:** 'Home for me is not just a building — it is the feeling of being among my own people, where I am understood and loved.'
 - **Source:** [http://1a-amendoboba.tumblr.com/](http://1a-amendoboba.tumblr.com/)
@@ -71,7 +82,7 @@
 
 ---
 
-### 7. Match Score: 0.465
+### 8. Match Score: 0.465
 - **Keywords:** `nostalgi, nostalgia`
 - **Concept Anchor:** 'Home for me is not just a building — it is the feeling of being among my own people, where I am understood and loved.'
 - **Source:** [http://fiveminutestofinish.tumblr.com/tagged/me-%3A3](http://fiveminutestofinish.tumblr.com/tagged/me-%3A3)
@@ -82,7 +93,7 @@
 
 ---
 
-### 8. Match Score: 0.453
+### 9. Match Score: 0.453
 - **Keywords:** `saudade`
 - **Concept Anchor:** 'My earliest memories are of playing outside near our family home. Those carefree days shaped who I became.'
 - **Source:** [http://bbaaby.tumblr.com/page/7](http://bbaaby.tumblr.com/page/7)
