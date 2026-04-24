@@ -128,6 +128,9 @@ python main.py status
 
 Shows overall and per-crawl progress including files completed, matches found, and percentage done. **Update (April 2026):** Status checks are now non-destructive and can be run safely while a crawl is in progress without interfering with active workers. Includes a new **Processing** indicator to track real-time task distribution.
 
+> [!NOTE]
+> **Match Count Discrepancy:** The `Matches found` number reported by the status command reflects the historical count of matches found during the raw crawl. Because we retroactively applied an ultra-strict, high-precision narrative filter to the exported data, the actual number of high-quality records in the `data/exports/` Markdown files will be significantly lower than the raw database count.
+
 ### Stability & Session Management
 
 - **Resumable Tracking**: Uses SQLite to track every file. If interrupted, just run the same command to resume.

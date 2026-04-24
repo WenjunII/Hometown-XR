@@ -145,6 +145,9 @@ python main.py status
 
 Shows overall and per-crawl progress including files completed, matches found, and percentage done.
 
+> [!NOTE]
+> **Match Count Discrepancy:** The `Matches found` number reported by the status command reflects the historical count of matches found during the raw crawl. Because we retroactively applied an ultra-strict, high-precision narrative filter to the exported data, the actual number of high-quality records in the `data/exports/` Markdown files will be significantly lower than the raw database count.
+
 ### Adjust Semantic Threshold
 
 ```bash
