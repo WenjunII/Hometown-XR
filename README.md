@@ -2,6 +2,12 @@
 
 A local, resumable Python application that extracts multilingual paragraphs about **home**, **hometown**, **belonging**, **roots**, **childhood**, **diaspora**, and **nostalgia** from Common Crawl web archive datasets spanning 2008–2026.
 
+## 🎨 Voice-to-Visual Interactive Installation
+
+This extractor is part of the broader **Hometown-XR** ecosystem. If you are looking for the real-time interactive component that turns spoken language into generative visuals (using OpenAI Whisper, LLM orchestration, and StreamDiffusionTD), please see the companion repository:
+
+👉 **[Voice-to-Visual SDTD](https://github.com/WenjunII/voice-to-visual-sdtd)**
+
 ## How It Works
 
 ```
