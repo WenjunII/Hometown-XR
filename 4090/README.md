@@ -2,12 +2,6 @@
 
 A local, resumable Python application that extracts multilingual paragraphs about **home**, **hometown**, **belonging**, **roots**, **childhood**, **diaspora**, and **nostalgia** from Common Crawl web archive datasets spanning 2008–2026.
 
-## 🎨 Voice-to-Visual Interactive Installation
-
-This extractor is part of the broader **Hometown-XR** ecosystem. If you are looking for the real-time interactive component that turns spoken language into generative visuals (using OpenAI Whisper, LLM orchestration, and StreamDiffusionTD), please see the companion repository:
-
-👉 **[Voice-to-Visual SDTD](https://github.com/WenjunII/voice-to-visual-sdtd)**
-
 ## How It Works
 
 ```
@@ -410,6 +404,14 @@ It's marked as "failed" in the database and skipped. Failed files can be retried
 
 **Q: Do I need AWS credentials?**
 No, you do not need AWS credentials for the 119+ modern WET format datasets. However, because Common Crawl disabled anonymous listing on their legacy S3 buckets, the 3 legacy ARC datasets (2008-2012) require authenticated requests to build their file lists. If you do not have AWS credentials configured, the application will simply log an error (`NoCredentialsError`) and gracefully skip these oldest 3 datasets, allowing you to seamlessly process the modern datasets without needing an AWS account.
+
+---
+
+## 🎨 Voice-to-Visual Interactive Installation
+
+This extractor is part of the broader **Hometown-XR** ecosystem. If you are looking for the real-time interactive component that turns spoken language into generative visuals (using OpenAI Whisper, LLM orchestration, and StreamDiffusionTD), please see the companion repository:
+
+👉 **[Voice-to-Visual SDTD](https://github.com/WenjunII/voice-to-visual-sdtd)**
 
 ---
 
