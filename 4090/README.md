@@ -414,11 +414,12 @@ No, you do not need AWS credentials for the 119+ modern WET format datasets. How
 
 ---
 
-## 🎨 Voice-to-Visual Interactive Installation
+## 🎨 Related Projects (Hometown-XR Ecosystem)
 
-This extractor is part of the broader **Hometown-XR** ecosystem. If you are looking for the real-time interactive component that turns spoken language into generative visuals (using OpenAI Whisper, LLM orchestration, and StreamDiffusionTD), please see the companion repository:
+This extractor is the data foundation for a broader immersive installation. Check out the other components:
 
-👉 **[Voice-to-Visual SDTD](https://github.com/WenjunII/voice-to-visual-sdtd)**
+*   **[Voice-to-Visual SDTD](https://github.com/WenjunII/voice-to-visual-sdtd)**: Real-time bridge turning spoken language into generative visuals using OpenAI Whisper and StreamDiffusionTD.
+*   **[SHARP-TD Bridge](https://github.com/WenjunII/sharp-td-bridge)**: Real-time 3D Gaussian Splatting pipeline that transforms 2D generated frames into 3D particles within TouchDesigner.
 
 ---
 
