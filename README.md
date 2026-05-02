@@ -435,6 +435,7 @@ This extractor is the data foundation for a broader immersive installation. Chec
 
 *   **[Voice-to-Visual SDTD](https://github.com/WenjunII/voice-to-visual-sdtd)**: Real-time bridge turning spoken language into generative visuals using OpenAI Whisper and StreamDiffusionTD.
 *   **[SHARP-TD Bridge](https://github.com/WenjunII/sharp-td-bridge)**: Real-time 3D Gaussian Splatting pipeline that transforms 2D generated frames into 3D particles within TouchDesigner.
+*   **[Home Podcast Generator](https://github.com/WenjunII/home-podcast-generator)**: AI-powered system that transforms extracted personal narratives into synthetic podcast conversations.
 
 ---
 
