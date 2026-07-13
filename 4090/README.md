@@ -73,8 +73,8 @@ Supports **all 122+ Common Crawl datasets** from 2008 to present:
 
 ```powershell
 git lfs install
-git clone https://github.com/WenjunII/Hometown-XR.git
-cd Hometown-XR
+git clone https://github.com/WenjunII/hometown-xr.git
+cd hometown-xr
 git lfs pull
 
 python -m venv .venv
