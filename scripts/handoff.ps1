@@ -24,6 +24,13 @@ try {
         git lfs pull
     }
     else {
+        $Python = Join-Path $Root ".venv\Scripts\python.exe"
+        if (Test-Path -LiteralPath $Python) {
+            & $Python (Join-Path $Root "main.py") verify-output
+            if ($LASTEXITCODE -ne 0) {
+                throw "Output verification failed; checkpoint was not pushed."
+            }
+        }
         git lfs status
         git push origin HEAD
     }
@@ -35,4 +42,3 @@ try {
 finally {
     Pop-Location
 }
-

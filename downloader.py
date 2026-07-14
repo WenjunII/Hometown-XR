@@ -10,7 +10,10 @@ Handles:
 import gzip
 import logging
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Iterator
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 import boto3
 import requests
@@ -135,8 +138,17 @@ def stream_file(file_path: str, crawl_info: CrawlInfo) -> Iterator[object]:
     Yields:
         A file-like stream object. The HTTP response is always closed.
     """
-    # Modern crawls use data.commoncrawl.org
-    # Legacy crawls also accessible via data.commoncrawl.org
+    if file_path.startswith("file:"):
+        parsed = urlparse(file_path)
+        local_path = Path(url2pathname(unquote(parsed.path)))
+    else:
+        local_path = Path(file_path)
+    if local_path.is_file():
+        with local_path.open("rb") as handle:
+            yield handle
+        return
+
+    # Modern and legacy crawls are accessible through the same data host.
     url = f"{CC_BASE_URL}{file_path}"
     logger.debug(f"Streaming file: {url}")
 

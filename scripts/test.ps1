@@ -8,8 +8,11 @@ if (-not (Test-Path -LiteralPath $Python)) {
 Push-Location $Root
 try {
     & $Python -m pytest
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & $Python -m ruff check .
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & $Python -m compileall -q -x "[\\/](\.venv|data)[\\/]" .
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally {
     Pop-Location

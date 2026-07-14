@@ -28,6 +28,12 @@ data/.refilter-staging-*/
 data/.refilter-backup-*/
 data/output/.staging/
 data/exports/hometown-xr-export-*.db
+data/hardware-profile.local.json
+data/metrics/
+data/parquet/
+data/.parquet-staging-*/
+data/.parquet-backup-*/
+data/evaluation/candidate_samples.jsonl
 
 # IDE
 .vscode/

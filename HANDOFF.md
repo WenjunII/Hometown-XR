@@ -1,22 +1,26 @@
 # Workstation Handoff Guide
 
-Use this procedure to move the Hometown XR extractor between the RTX 3080 PC
-and RTX 4090 PC. Never run the crawler on both PCs at the same time.
+Use this procedure to move Hometown XR between the RTX 3080 and RTX 4090 PCs.
+Never run the crawler on both PCs at the same time.
 
-## What Is Synchronized
+## Shared And Local State
 
-Git and Git LFS synchronize:
+Git and Git LFS synchronize source code, tests, documentation,
+`data/progress.db`, committed JSONL output, manifests, and Markdown exports.
 
-- All source code, tests, scripts, and documentation
-- `data/progress.db` through Git LFS
-- Committed `data/output/` JSONL shards
-- Committed `data/exports/` Markdown files
+The following remain local to each PC:
 
-The virtual environment and `data/models/` are machine-local and ignored.
+- `.venv/`
+- `data/models/`
+- `data/hardware-profile.local.json`
+- `data/metrics/`
+- `data/parquet/`
+- live candidate evaluation samples
+
+This division lets both PCs use one checkpoint while retaining their own GPU
+tuning and reproducible derived data.
 
 ## First-Time Setup
-
-On each PC:
 
 ```powershell
 git clone https://github.com/wenjunii/hometown-xr.git
@@ -27,15 +31,17 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1 -Profile 3080
 ```
 
-Use `-Profile 4090` on the 4090 PC.
+Use `-Profile 4090` on the other PC. Optionally tune each machine once:
+
+```powershell
+.\scripts\benchmark.ps1 -Profile 3080
+```
 
 ## Send A Checkpoint
 
-On the currently active PC:
-
 1. Press `Ctrl+C` once.
-2. Wait for active workers to return their claims and for the final summary.
-3. Confirm the local lock is gone:
+2. Wait for active parsers to return their source leases.
+3. Confirm the lock is absent:
 
 ```powershell
 Test-Path .\data\.crawler.lock
@@ -43,59 +49,51 @@ Test-Path .\data\.crawler.lock
 
 The result must be `False`.
 
-Inspect and commit the checkpoint:
+Then validate, commit, and push:
 
 ```powershell
+python main.py verify-output
 git status --short
 git add --all
 git commit -m "checkpoint: hand off crawler state"
 .\scripts\handoff.ps1 -Direction push
 ```
 
-Do not copy a live `progress.db`, its WAL sidecars, or partially staged output.
-The crawler's clean shutdown guarantees that interrupted source output was not
-committed and those source rows are back in `pending`.
+Do not copy a live SQLite database, WAL sidecar, staging directory, or Parquet
+export. A clean shutdown leaves interrupted sources pending and keeps their old
+committed output intact.
 
 ## Receive A Checkpoint
 
-On the destination PC, with no local changes:
+The destination worktree must be clean:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\handoff.ps1 -Direction pull
 .\.venv\Scripts\python.exe main.py doctor --profile 3080
 .\.venv\Scripts\python.exe main.py status
+.\.venv\Scripts\python.exe main.py verify-output
 ```
 
-Use `--profile 4090` on the 4090 PC. If dependencies changed since the last
-handoff, rerun `scripts/setup.ps1`.
-
-Start the crawler:
+Rerun `scripts\setup.ps1` whenever dependency lock files changed. Resume with:
 
 ```powershell
 .\scripts\run.ps1 -Profile 3080 run --all
 ```
 
-or:
-
-```powershell
-.\scripts\run.ps1 -Profile 4090 run --all
-```
+Use profile `4090` on the other PC.
 
 ## After A Crash
 
-A normal `Ctrl+C` releases claims immediately. After a hard power loss, the
-last active rows remain leased for 10 minutes to protect a worker that may still
-be alive.
-
-Once you have confirmed no crawler process is running, recover immediately with:
+A normal `Ctrl+C` releases source claims immediately. After power loss, wait
+for the 10-minute lease expiry, or recover after confirming no crawler process
+is alive:
 
 ```powershell
 python main.py recover --minutes 0
 ```
 
-Failed sources retry automatically after backoff. To retry every failed source
-immediately, including attempts that reached the limit:
+Failed sources retry automatically. To reset every failed source immediately:
 
 ```powershell
 python main.py retry --all
@@ -103,7 +101,7 @@ python main.py retry --all
 
 ## Conflict Rule
 
-If both PCs accidentally created commits, stop. Do not merge two versions of
-`data/progress.db` or combine two sets of source shards by hand. Choose the
-checkpoint from the PC that ran most recently, preserve the other branch for
-inspection, and resume from the chosen serial checkpoint.
+If both PCs accidentally produced commits, stop. Do not merge two
+`data/progress.db` files or combine source shards manually. Keep both branches
+for inspection, choose the checkpoint from the PC that ran most recently, and
+resume serially from that checkpoint.

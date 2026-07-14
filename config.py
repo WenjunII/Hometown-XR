@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -12,6 +13,10 @@ OUTPUT_DIR = DATA_DIR / "output"
 MODELS_DIR = DATA_DIR / "models"
 DB_PATH = DATA_DIR / "progress.db"
 RUN_LOCK_PATH = DATA_DIR / ".crawler.lock"
+METRICS_DIR = DATA_DIR / "metrics"
+EVALUATION_DIR = DATA_DIR / "evaluation"
+PARQUET_DIR = DATA_DIR / "parquet"
+HARDWARE_OVERRIDE_PATH = DATA_DIR / "hardware-profile.local.json"
 
 for directory in (DATA_DIR, OUTPUT_DIR, MODELS_DIR):
     directory.mkdir(parents=True, exist_ok=True)
@@ -50,6 +55,10 @@ RETRY_BASE_SECONDS = 300
 RETRY_MAX_SECONDS = 21_600
 LEASE_TIMEOUT_SECONDS = 600
 HEARTBEAT_INTERVAL_SECONDS = 30
+METRICS_FLUSH_SECONDS = 10
+EVALUATION_SAMPLE_RATE = 0.002
+EVALUATION_MAX_SAMPLES_PER_SESSION = 2_000
+OUTPUT_SCHEMA_VERSION = 2
 
 
 # "auto" is resolved lazily by the semantic matcher so importing lightweight
@@ -63,15 +72,21 @@ class HardwareProfile:
 
     name: str
     workers: int
-    stream_batch_size: int
+    candidate_batch_size: int
+    inference_batch_size: int
     encoding_batch_size: int
+
+    @property
+    def stream_batch_size(self) -> int:
+        """Backward-compatible name used by older scripts."""
+        return self.candidate_batch_size
 
 
 # Both machines currently use the proven seven-worker settings. Keeping the
 # profiles explicit makes future tuning a configuration change, not a code fork.
 HARDWARE_PROFILES = {
-    "3080": HardwareProfile("3080", 7, 200, 128),
-    "4090": HardwareProfile("4090", 7, 200, 128),
+    "3080": HardwareProfile("3080", 7, 100, 800, 128),
+    "4090": HardwareProfile("4090", 7, 150, 1_600, 256),
 }
 
 
@@ -103,10 +118,29 @@ def get_hardware_profile(name: str | None = None) -> HardwareProfile:
     """Resolve an explicit profile name or auto-detect the local GPU."""
     resolved = detect_hardware_profile() if not name or name == "auto" else name
     try:
-        return HARDWARE_PROFILES[resolved]
+        profile = HARDWARE_PROFILES[resolved]
     except KeyError as exc:
         valid = ", ".join(sorted(HARDWARE_PROFILES))
         raise ValueError(f"Unknown hardware profile {resolved!r}; choose {valid}") from exc
+
+    if HARDWARE_OVERRIDE_PATH.exists():
+        try:
+            override = json.loads(HARDWARE_OVERRIDE_PATH.read_text(encoding="utf-8"))
+            if override.get("profile") == profile.name:
+                values = {
+                    key: int(override[key])
+                    for key in (
+                        "workers",
+                        "candidate_batch_size",
+                        "inference_batch_size",
+                        "encoding_batch_size",
+                    )
+                    if key in override
+                }
+                profile = replace(profile, **values)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
+    return profile
 
 
 _legacy_profile_name = os.environ.get("HOMETOWN_XR_PROFILE", "3080").lower()
@@ -115,4 +149,5 @@ if _legacy_profile_name not in HARDWARE_PROFILES:
 _DEFAULT_PROFILE = HARDWARE_PROFILES[_legacy_profile_name]
 MAX_WORKERS = _DEFAULT_PROFILE.workers
 STREAM_BATCH_SIZE = _DEFAULT_PROFILE.stream_batch_size
+INFERENCE_BATCH_SIZE = _DEFAULT_PROFILE.inference_batch_size
 ENCODING_BATCH_SIZE = _DEFAULT_PROFILE.encoding_batch_size

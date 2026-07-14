@@ -11,10 +11,12 @@ import re
 import shutil
 import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from config import OUTPUT_DIR
+from config import OUTPUT_DIR, OUTPUT_SCHEMA_VERSION
+from record_identity import content_fingerprint, stable_record_id
 
 if TYPE_CHECKING:
     from matcher import Match
@@ -26,6 +28,14 @@ _SAFE_LANGUAGE = re.compile(r"^[A-Za-z0-9_-]{1,20}$")
 
 def _source_digest(source_path: str) -> str:
     return hashlib.sha256(source_path.encode("utf-8")).hexdigest()[:16]
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _legacy_filename(source_path: str) -> str:
@@ -52,6 +62,7 @@ class SourceOutputTransaction:
         self.staging_dir = writer.staging_root / f"{_source_digest(source_path)}-{uuid.uuid4().hex}"
         self.staging_dir.mkdir(parents=True, exist_ok=False)
         self.counts: dict[str, int] = {}
+        self._seen_record_ids: set[str] = set()
         self._finished = False
 
     def __enter__(self) -> "SourceOutputTransaction":
@@ -73,7 +84,20 @@ class SourceOutputTransaction:
         by_language: dict[str, list[dict]] = {}
         for match, (language, confidence) in zip(matches, languages):
             lang = language if _SAFE_LANGUAGE.fullmatch(language) else "unknown"
+            record_id = stable_record_id(
+                match.crawl_id,
+                self.source_path,
+                match.url,
+                match.warc_date,
+                match.text,
+            )
+            if record_id in self._seen_record_ids:
+                continue
+            self._seen_record_ids.add(record_id)
             record = {
+                "schema_version": OUTPUT_SCHEMA_VERSION,
+                "record_id": record_id,
+                "content_fingerprint": content_fingerprint(match.url, match.text),
                 "crawl_id": match.crawl_id,
                 "source_file": self.source_path,
                 "url": match.url,
@@ -84,6 +108,7 @@ class SourceOutputTransaction:
                 "matched_keywords": match.matched_keywords,
                 "semantic_score": round(match.semantic_score, 4),
                 "concept_match": match.concept_match,
+                "narrative_score": match.narrative_score,
             }
             by_language.setdefault(lang, []).append(record)
 
@@ -98,29 +123,66 @@ class SourceOutputTransaction:
             written[lang] = count
         return written
 
+    def _manifest(self, stage_paths: list[Path]) -> dict:
+        shards = []
+        for stage_path in sorted(stage_paths):
+            language = stage_path.name[: -len(".jsonl.gz")]
+            destination = self.writer.output_path(language, self.source_path)
+            shards.append(
+                {
+                    "language": language,
+                    "path": destination.relative_to(self.writer.output_dir).as_posix(),
+                    "records": self.counts.get(language, 0),
+                    "bytes": stage_path.stat().st_size,
+                    "sha256": _sha256(stage_path),
+                }
+            )
+        return {
+            "schema_version": OUTPUT_SCHEMA_VERSION,
+            "source_file": self.source_path,
+            "source_digest": _source_digest(self.source_path),
+            "records": sum(self.counts.values()),
+            "committed_at": datetime.now(timezone.utc).isoformat(),
+            "shards": shards,
+        }
+
     def commit(self) -> dict[str, int]:
-        """Replace every prior shard for this source, rolling back on error."""
+        """Replace every prior shard and manifest, rolling back on error."""
         if self._finished:
             raise RuntimeError("output transaction is already finished")
 
         backup_dir = self.staging_dir / "_backup"
         backups: list[tuple[Path, Path]] = []
         installed: list[Path] = []
+        stage_paths = list(self.staging_dir.glob("*.jsonl.gz"))
+        manifest_stage = None
+        if stage_paths:
+            manifest_stage = self.staging_dir / "_manifest.json"
+            manifest_stage.write_text(
+                json.dumps(self._manifest(stage_paths), ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
 
         try:
-            for existing in self.writer.find_source_outputs(self.source_path):
+            for existing in self.writer.find_source_artifacts(self.source_path):
                 relative = existing.relative_to(self.writer.output_dir)
                 backup = backup_dir / relative
                 backup.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(existing, backup)
                 backups.append((backup, existing))
 
-            for stage_path in self.staging_dir.glob("*.jsonl.gz"):
-                language = stage_path.name[:-9]
+            for stage_path in stage_paths:
+                language = stage_path.name[: -len(".jsonl.gz")]
                 destination = self.writer.output_path(language, self.source_path)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 os.replace(stage_path, destination)
                 installed.append(destination)
+
+            if manifest_stage is not None:
+                manifest_destination = self.writer.manifest_path(self.source_path)
+                manifest_destination.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(manifest_stage, manifest_destination)
+                installed.append(manifest_destination)
         except Exception:
             for destination in installed:
                 destination.unlink(missing_ok=True)
@@ -135,7 +197,7 @@ class SourceOutputTransaction:
             return result
 
     def abort(self) -> None:
-        """Discard staged output without touching the current committed shards."""
+        """Discard staged output without touching committed shards."""
         if not self._finished:
             self._finished = True
             shutil.rmtree(self.staging_dir, ignore_errors=True)
@@ -147,8 +209,10 @@ class OutputWriter:
     def __init__(self, output_dir: str | Path = OUTPUT_DIR):
         self.output_dir = Path(output_dir)
         self.staging_root = self.output_dir / ".staging"
+        self.manifests_dir = self.output_dir / "_manifests"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.staging_root.mkdir(parents=True, exist_ok=True)
+        self.manifests_dir.mkdir(parents=True, exist_ok=True)
 
     def output_path(self, language: str, source_path: str) -> Path:
         lang = language if _SAFE_LANGUAGE.fullmatch(language) else "unknown"
@@ -158,12 +222,15 @@ class OutputWriter:
         lang = language if _SAFE_LANGUAGE.fullmatch(language) else "unknown"
         return self.output_dir / lang / _legacy_filename(source_path)
 
+    def manifest_path(self, source_path: str) -> Path:
+        return self.manifests_dir / f"{_source_digest(source_path)}.json"
+
     def find_source_outputs(self, source_path: str) -> list[Path]:
         """Find both legacy and collision-resistant shards for one source."""
         names = {_legacy_filename(source_path), _current_filename(source_path)}
         paths: list[Path] = []
         for language_dir in self.output_dir.iterdir():
-            if not language_dir.is_dir() or language_dir.name.startswith("."):
+            if not language_dir.is_dir() or language_dir.name.startswith((".", "_")):
                 continue
             for name in names:
                 candidate = language_dir / name
@@ -171,11 +238,18 @@ class OutputWriter:
                     paths.append(candidate)
         return paths
 
+    def find_source_artifacts(self, source_path: str) -> list[Path]:
+        paths = self.find_source_outputs(source_path)
+        manifest = self.manifest_path(source_path)
+        if manifest.exists():
+            paths.append(manifest)
+        return paths
+
     def begin_source(self, source_path: str) -> SourceOutputTransaction:
         return SourceOutputTransaction(self, source_path)
 
     def cleanup_stale_staging(self, older_than_seconds: int = 86_400) -> int:
-        """Remove abandoned staging directories before worker startup."""
+        """Remove abandoned staging directories before startup."""
         cutoff = time.time() - older_than_seconds
         removed = 0
         for path in self.staging_root.iterdir():
@@ -184,13 +258,67 @@ class OutputWriter:
                 removed += 1
         return removed
 
+    def verify_source(self, source_path: str) -> list[str]:
+        """Return integrity errors for a committed source manifest."""
+        manifest_path = self.manifest_path(source_path)
+        if not manifest_path.exists():
+            return ["manifest is missing"]
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        errors = []
+        total_records = 0
+        if manifest.get("source_file") != source_path:
+            errors.append("manifest source does not match requested source")
+        for shard in manifest.get("shards", []):
+            path = self.output_dir / shard["path"]
+            if not path.exists():
+                errors.append(f"missing shard: {shard['path']}")
+                continue
+            if _sha256(path) != shard["sha256"]:
+                errors.append(f"checksum mismatch: {shard['path']}")
+            row_count = 0
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as handle:
+                    for line_number, line in enumerate(handle, 1):
+                        if not line.strip():
+                            continue
+                        row_count += 1
+                        record = json.loads(line)
+                        if record.get("source_file") != source_path:
+                            errors.append(
+                                f"source mismatch: {shard['path']}:{line_number}"
+                            )
+                        if record.get("schema_version") != OUTPUT_SCHEMA_VERSION:
+                            errors.append(
+                                f"schema mismatch: {shard['path']}:{line_number}"
+                            )
+                        if not record.get("record_id") or not record.get(
+                            "content_fingerprint"
+                        ):
+                            errors.append(
+                                f"missing identity: {shard['path']}:{line_number}"
+                            )
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                errors.append(f"invalid shard {shard['path']}: {exc}")
+                continue
+            total_records += row_count
+            if row_count != int(shard.get("records", -1)):
+                errors.append(
+                    f"row count mismatch: {shard['path']} "
+                    f"({row_count} != {shard.get('records')})"
+                )
+        if total_records != int(manifest.get("records", -1)):
+            errors.append(
+                f"manifest total mismatch ({total_records} != {manifest.get('records')})"
+            )
+        return errors
+
     def write_matches(
         self,
         matches: list[Match],
         languages: list[tuple[str, float]],
         source_path: str,
     ) -> dict[str, int]:
-        """Compatibility helper for callers that have one complete source batch."""
+        """Compatibility helper for a complete source batch."""
         transaction = self.begin_source(source_path)
         try:
             transaction.write_matches(matches, languages)

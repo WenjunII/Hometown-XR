@@ -39,6 +39,21 @@ def test_source_commit_is_idempotent_and_records_source(tmp_path):
     records = _read_records(outputs[0])
     assert len(records) == 1
     assert records[0]["source_file"] == source
+    assert records[0]["schema_version"] == 2
+    assert len(records[0]["record_id"]) == 64
+    assert len(records[0]["content_fingerprint"]) == 64
+    assert writer.verify_source(source) == []
+
+
+def test_duplicate_record_in_one_transaction_is_written_once(tmp_path):
+    writer = OutputWriter(tmp_path / "output")
+    source = "crawl-data/example/duplicate.warc.wet.gz"
+    transaction = writer.begin_source(source)
+    transaction.write_matches([_match(), _match()], [("en", 0.99), ("en", 0.99)])
+    transaction.commit()
+
+    records = _read_records(writer.find_source_outputs(source)[0])
+    assert len(records) == 1
 
 
 def test_zero_match_commit_removes_legacy_partial_output(tmp_path):
@@ -51,6 +66,7 @@ def test_zero_match_commit_removes_legacy_partial_output(tmp_path):
 
     writer.begin_source(source).commit()
     assert writer.find_source_outputs(source) == []
+    assert not writer.manifest_path(source).exists()
 
 
 def test_commit_rolls_back_existing_output_when_install_fails(tmp_path, monkeypatch):

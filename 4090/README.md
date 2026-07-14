@@ -17,3 +17,8 @@ python main.py run --profile 4090 --all
 ```
 
 Both forms use the root `data/` checkpoint and output directories.
+
+The `4090` profile uses seven CPU parser workers feeding one shared GPU model
+with candidate/inference/encoding batches of `150`/`1600`/`256`. Run
+`scripts\benchmark.ps1 -Profile 4090` on that PC to create its ignored local
+autotuning override.

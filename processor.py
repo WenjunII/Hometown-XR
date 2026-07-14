@@ -18,6 +18,7 @@ class Paragraph:
     warc_date: str
     text: str
     crawl_id: str = ""
+    source_file: str = ""
 
 
 @dataclass
@@ -61,6 +62,7 @@ def extract_paragraphs_from_wet(
     keyword_matcher=None,
     shutdown_event=None,
     stats: ProcessingStats | None = None,
+    source_file: str = "",
 ) -> Iterator[tuple[Paragraph, list[str], int]]:
     """Yield keyword candidates from a modern WET stream."""
     stats = stats if stats is not None else ProcessingStats()
@@ -89,6 +91,7 @@ def extract_paragraphs_from_wet(
             crawl_id,
             keyword_matcher,
             shutdown_event,
+            source_file,
         ):
             yield paragraph, keywords, stats.records_processed
 
@@ -102,6 +105,7 @@ def extract_paragraphs_from_arc(
     keyword_matcher=None,
     shutdown_event=None,
     stats: ProcessingStats | None = None,
+    source_file: str = "",
 ) -> Iterator[tuple[Paragraph, list[str], int]]:
     """Yield keyword candidates from a legacy ARC stream."""
     stats = stats if stats is not None else ProcessingStats()
@@ -138,6 +142,7 @@ def extract_paragraphs_from_arc(
             crawl_id,
             keyword_matcher,
             shutdown_event,
+            source_file,
         ):
             yield paragraph, keywords, stats.records_processed
 
@@ -152,6 +157,7 @@ def _extract_paras(
     crawl_id: str = "",
     keyword_matcher=None,
     shutdown_event=None,
+    source_file: str = "",
 ) -> Iterator[tuple[Paragraph, list[str]]]:
     for raw_paragraph in content.split("\n\n"):
         if shutdown_event and shutdown_event.is_set():
@@ -168,6 +174,12 @@ def _extract_paras(
                 continue
 
         yield (
-            Paragraph(url=url, warc_date=warc_date, text=text, crawl_id=crawl_id),
+            Paragraph(
+                url=url,
+                warc_date=warc_date,
+                text=text,
+                crawl_id=crawl_id,
+                source_file=source_file,
+            ),
             keywords,
         )

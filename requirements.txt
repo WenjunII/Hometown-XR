@@ -7,3 +7,4 @@ torch==2.1.0
 tqdm==4.68.4
 boto3==1.43.47
 numpy==1.26.4
+pyarrow==25.0.0

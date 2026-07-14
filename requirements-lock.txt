@@ -19,6 +19,7 @@ networkx==3.4.2
 numpy==1.26.4
 packaging==26.2
 pillow==12.3.0
+pyarrow==25.0.0
 pybind11==3.0.4
 python-dateutil==2.9.0.post0
 PyYAML==6.0.3
@@ -39,4 +40,3 @@ transformers==4.40.2
 typing_extensions==4.15.0
 urllib3==2.7.0
 warcio==1.8.1
-

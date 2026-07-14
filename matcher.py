@@ -66,6 +66,36 @@ class Match:
     semantic_score: float
     concept_match: str
     crawl_id: str = ""
+    source_file: str = ""
+    narrative_score: int | None = None
+
+
+@dataclass
+class MatchDecision:
+    """Complete filter decision for one keyword candidate."""
+
+    paragraph: Paragraph
+    matched_keywords: list[str]
+    semantic_score: float
+    concept_match: str
+    narrative_score: int
+    accepted: bool
+    rejection_reason: str | None = None
+
+    def to_match(self) -> Match:
+        if not self.accepted:
+            raise ValueError("a rejected decision cannot be converted to a match")
+        return Match(
+            url=self.paragraph.url,
+            warc_date=self.paragraph.warc_date,
+            text=self.paragraph.text,
+            matched_keywords=self.matched_keywords,
+            semantic_score=self.semantic_score,
+            concept_match=self.concept_match,
+            crawl_id=self.paragraph.crawl_id,
+            source_file=self.paragraph.source_file,
+            narrative_score=self.narrative_score,
+        )
 
 
 class KeywordMatcher:
@@ -750,141 +780,62 @@ class HybridMatcher:
         Returns:
             List of Match objects that passed all stages
         """
+        return [
+            decision.to_match()
+            for decision in self.evaluate_batch_stage2(batch)
+            if decision.accepted
+        ]
+
+    def evaluate_batch_stage2(
+        self,
+        batch: list[tuple[Paragraph, list[str]]],
+    ) -> list[MatchDecision]:
+        """Score every keyword candidate and retain filter diagnostics."""
         if not batch:
             return []
 
-        paragraphs = [b[0] for b in batch]
-        keywords = [b[1] for b in batch]
-        texts = [p.text for p in paragraphs]
+        paragraphs = [item[0] for item in batch]
+        keywords = [item[1] for item in batch]
+        scores = self.semantic_matcher.score_paragraphs(
+            [paragraph.text for paragraph in paragraphs]
+        )
+        decisions: list[MatchDecision] = []
 
-        # Stage 2: Semantic similarity scoring
-        scores = self.semantic_matcher.score_paragraphs(texts)
+        for paragraph, matched_keywords, (score, concept) in zip(
+            paragraphs,
+            keywords,
+            scores,
+        ):
+            narrative_score = (
+                self.narrative_filter.count_indicators(paragraph.text)
+                if self.narrative_filter
+                else self.narrative_min_indicators
+            )
+            rejection_reason = None
+            if score < self.threshold:
+                rejection_reason = "semantic_threshold"
+            elif self.narrative_filter and narrative_score < self.narrative_min_indicators:
+                rejection_reason = "narrative_threshold"
 
-        # Filter by threshold
-        semantic_matches = []
-        for i, (score, concept) in enumerate(scores):
-            if score >= self.threshold:
-                semantic_matches.append((i, score, concept))
-
-        if not semantic_matches:
-            return []
-
-        # Stage 3: Narrative voice filter
-        matches = []
-        if self.narrative_filter:
-            for i, score, concept in semantic_matches:
-                if self.narrative_filter.passes(paragraphs[i].text, self.narrative_min_indicators):
-                    matches.append(
-                        Match(
-                            url=paragraphs[i].url,
-                            warc_date=paragraphs[i].warc_date,
-                            text=paragraphs[i].text,
-                            matched_keywords=keywords[i],
-                            semantic_score=score,
-                            concept_match=concept,
-                            crawl_id=paragraphs[i].crawl_id,
-                        )
-                    )
-        else:
-            for i, score, concept in semantic_matches:
-                matches.append(
-                    Match(
-                        url=paragraphs[i].url,
-                        warc_date=paragraphs[i].warc_date,
-                        text=paragraphs[i].text,
-                        matched_keywords=keywords[i],
-                        semantic_score=score,
-                        concept_match=concept,
-                        crawl_id=paragraphs[i].crawl_id,
-                    )
+            decisions.append(
+                MatchDecision(
+                    paragraph=paragraph,
+                    matched_keywords=matched_keywords,
+                    semantic_score=score,
+                    concept_match=concept,
+                    narrative_score=narrative_score,
+                    accepted=rejection_reason is None,
+                    rejection_reason=rejection_reason,
                 )
+            )
 
-        return matches
+        return decisions
 
     def process_paragraphs(self, paragraphs: list[Paragraph]) -> list[Match]:
-        """
-        Run all matching stages on a list of paragraphs.
-
-        Args:
-            paragraphs: List of Paragraph objects from the processor
-
-        Returns:
-            List of Match objects that passed all stages
-        """
-        # Stage 1: Keyword pre-filter
+        """Run all three matching stages on a list of paragraphs."""
         candidates = []
-        candidate_keywords = []
-
-        for para in paragraphs:
-            kw_matches = self.keyword_matcher.find_matches(para.text)
-            if kw_matches:
-                candidates.append(para)
-                candidate_keywords.append(kw_matches)
-
-        if not candidates:
-            return []
-
-        logger.debug(
-            f"Stage 1: {len(candidates)}/{len(paragraphs)} paragraphs "
-            f"passed keyword filter ({len(candidates) / max(len(paragraphs), 1) * 100:.1f}%)"
-        )
-
-        # Stage 2: Semantic similarity scoring
-        candidate_texts = [c.text for c in candidates]
-        scores = self.semantic_matcher.score_paragraphs(candidate_texts)
-
-        # Filter by threshold
-        semantic_matches = []
-        for i, (score, concept) in enumerate(scores):
-            if score >= self.threshold:
-                semantic_matches.append((i, score, concept))
-
-        logger.debug(
-            f"Stage 2: {len(semantic_matches)}/{len(candidates)} candidates "
-            f"passed semantic threshold ({self.threshold})"
-        )
-
-        if not semantic_matches:
-            return []
-
-        # Stage 3: Narrative voice filter
-        if self.narrative_filter:
-            matches = []
-            narrative_passed = 0
-            for i, score, concept in semantic_matches:
-                if self.narrative_filter.passes(candidates[i].text, self.narrative_min_indicators):
-                    narrative_passed += 1
-                    matches.append(
-                        Match(
-                            url=candidates[i].url,
-                            warc_date=candidates[i].warc_date,
-                            text=candidates[i].text,
-                            matched_keywords=candidate_keywords[i],
-                            semantic_score=score,
-                            concept_match=concept,
-                            crawl_id=candidates[i].crawl_id,
-                        )
-                    )
-
-            logger.debug(
-                f"Stage 3: {narrative_passed}/{len(semantic_matches)} candidates "
-                "passed narrative voice filter "
-                f"(min_indicators={self.narrative_min_indicators})"
-            )
-        else:
-            # No narrative filter — pass everything from Stage 2
-            matches = []
-            for i, score, concept in semantic_matches:
-                matches.append(
-                    Match(
-                        url=candidates[i].url,
-                        warc_date=candidates[i].warc_date,
-                        text=candidates[i].text,
-                        matched_keywords=candidate_keywords[i],
-                        semantic_score=score,
-                        concept_match=concept,
-                        crawl_id=candidates[i].crawl_id,
-                    )
-                )
-
-        return matches
+        for paragraph in paragraphs:
+            keywords = self.keyword_matcher.find_matches(paragraph.text)
+            if keywords:
+                candidates.append((paragraph, keywords))
+        return self.process_batch_stage2(candidates)

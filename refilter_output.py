@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import hashlib
 import json
 import logging
 import os
@@ -11,16 +12,19 @@ import shutil
 import sqlite3
 import uuid
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config import (
     DB_PATH,
     MIN_NARRATIVE_INDICATORS,
     OUTPUT_DIR,
+    OUTPUT_SCHEMA_VERSION,
     SEMANTIC_THRESHOLD,
 )
 from matcher import NarrativeFilter
-from output import _current_filename, _legacy_filename
+from output import _current_filename, _legacy_filename, _source_digest
+from record_identity import content_fingerprint, stable_record_id
 from run_lock import CrawlerRunLock
 
 logging.basicConfig(
@@ -28,6 +32,14 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-7s | %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _write_journal(path: Path, payload: dict) -> None:
@@ -125,7 +137,6 @@ class SourceResolver:
             self.status_cache[source_path] = row[0] if row else None
         return self.status_cache[source_path]
 
-
 def _stage_refiltered_output(
     output_dir: Path,
     staging_dir: Path,
@@ -137,6 +148,8 @@ def _stage_refiltered_output(
     files = sorted(output_dir.glob("*/*.jsonl.gz"))
     resolver = SourceResolver(db_path, {path.name for path in files})
     counts: Counter[str] = Counter()
+    shard_counts: Counter[tuple[str, str]] = Counter()
+    seen_record_ids: dict[str, set[str]] = {}
     kept = 0
     removed = 0
 
@@ -146,6 +159,7 @@ def _stage_refiltered_output(
             destination = staging_dir / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             file_kept = 0
+            destination_source = None
 
             with gzip.open(source_file, "rt", encoding="utf-8") as source_handle:
                 with gzip.open(destination, "wt", encoding="utf-8") as dest_handle:
@@ -163,17 +177,44 @@ def _stage_refiltered_output(
                         if not source_path:
                             source_path = resolver.legacy_source(source_file.name)
                             record["source_file"] = source_path
+                        if destination_source is None:
+                            destination_source = source_path
+                        elif destination_source != source_path:
+                            raise RuntimeError(
+                                f"Output shard contains multiple sources: {source_file}"
+                            )
 
+                        narrative_score = narrative_filter.count_indicators(
+                            record.get("paragraph", "")
+                        )
                         passes = (
                             resolver.status(source_path) == "completed"
                             and float(record.get("semantic_score", 0)) >= semantic_threshold
-                            and narrative_filter.passes(
-                                record.get("paragraph", ""), narrative_threshold
-                            )
+                            and narrative_score >= narrative_threshold
                         )
                         if passes:
+                            paragraph = record.get("paragraph", "")
+                            record_id = stable_record_id(
+                                record.get("crawl_id", ""),
+                                source_path,
+                                record.get("url", ""),
+                                record.get("warc_date", ""),
+                                paragraph,
+                            )
+                            source_seen = seen_record_ids.setdefault(source_path, set())
+                            if record_id in source_seen:
+                                removed += 1
+                                continue
+                            source_seen.add(record_id)
+                            record["schema_version"] = OUTPUT_SCHEMA_VERSION
+                            record["record_id"] = record_id
+                            record["content_fingerprint"] = content_fingerprint(
+                                record.get("url", ""), paragraph
+                            )
+                            record["narrative_score"] = narrative_score
                             dest_handle.write(json.dumps(record, ensure_ascii=False) + "\n")
                             counts[source_path] += 1
+                            shard_counts[(source_path, relative.as_posix())] += 1
                             file_kept += 1
                             kept += 1
                         else:
@@ -181,6 +222,37 @@ def _stage_refiltered_output(
 
             if file_kept == 0:
                 destination.unlink()
+
+        manifests_dir = staging_dir / "_manifests"
+        manifests_dir.mkdir(parents=True, exist_ok=True)
+        committed_at = datetime.now(timezone.utc).isoformat()
+        for source_path in sorted(counts):
+            shards = []
+            for (shard_source, relative), record_count in sorted(shard_counts.items()):
+                if shard_source != source_path:
+                    continue
+                path = staging_dir / relative
+                shards.append(
+                    {
+                        "language": Path(relative).parent.name,
+                        "path": relative,
+                        "records": record_count,
+                        "bytes": path.stat().st_size,
+                        "sha256": _sha256(path),
+                    }
+                )
+            manifest = {
+                "schema_version": OUTPUT_SCHEMA_VERSION,
+                "source_file": source_path,
+                "source_digest": _source_digest(source_path),
+                "records": counts[source_path],
+                "committed_at": committed_at,
+                "shards": shards,
+            }
+            (manifests_dir / f"{_source_digest(source_path)}.json").write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
         return counts, kept, removed
     finally:
         resolver.close()
