@@ -32,10 +32,25 @@ Before switching machines:
 1. Press `Ctrl+C` once and wait for the final summary.
 2. Confirm `data/.crawler.lock` is gone.
 3. Run `scripts\checkpoint.ps1` on the old PC to verify, compact, commit, and push.
-4. Pull Git and Git LFS on the new PC.
-5. Run `main.py doctor` and `main.py status` before resuming.
+4. Run `scripts\handoff.ps1 -Direction pull -Profile <GPU>` on the new PC.
+5. Resume only after the receive command passes its environment and output checks.
 
 See [HANDOFF.md](HANDOFF.md) for the exact commands.
+
+The normal 3080 receive/run/send cycle is:
+
+```powershell
+.\scripts\handoff.ps1 -Direction pull -Profile 3080
+.\scripts\run.ps1 -Profile 3080 run --all
+# After stopping the crawler cleanly:
+.\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"
+```
+
+Use `4090` in the first two commands on the other PC. The receive command
+requires a clean worktree, performs a fast-forward-only Git pull plus Git LFS
+pull, then runs `doctor`, `status`, and `verify-output`. The send command works
+only from `main`, checks that `origin/main` is not ahead before checkpointing,
+and confirms the pushed commit against the remote.
 
 ## Architecture
 
@@ -85,7 +100,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 Use `-Profile 4090` on the other PC. Setup installs the exact versions in
-`requirements-lock.txt`, including the CUDA 12.1 PyTorch wheel.
+`requirements-lock.txt`, including the CUDA 12.1 PyTorch wheel. Add `-Tune` to
+run a quick local hardware benchmark or `-Dev` to install the test toolchain.
 
 Verify the environment and checkpoint:
 
@@ -110,6 +126,8 @@ The old `4090\main.py` command remains a compatibility launcher. It invokes
 the same root implementation and shared `data/` checkpoint.
 
 ## Hardware Profiles
+
+These are the conservative settings tracked in Git:
 
 | Profile | CPU workers | Candidate batch | Inference batch | Encoding batch | Precision |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -164,6 +182,21 @@ language stratification prevent the queue from collapsing around one score or
 language. Human labels are never synthesized.
 
 ## Commands
+
+PowerShell launchers provide the recommended workstation workflow and can
+resolve the project root regardless of the caller's current directory:
+
+| Script | Purpose |
+| --- | --- |
+| `.\scripts\setup.ps1 -Profile 3080` | Create/update the runtime and run diagnostics |
+| `.\scripts\setup.ps1 -Profile 3080 -Tune -Dev` | Also tune this PC and install development tools |
+| `.\scripts\run.ps1 -Profile 3080 run --all` | Start or resume using the selected hardware profile |
+| `.\scripts\benchmark.ps1 -Profile 3080` | Audit FP16 safety and write this PC's local override |
+| `.\scripts\handoff.ps1 -Direction pull -Profile 3080` | Fast-forward, pull LFS data, and verify the received checkpoint |
+| `.\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"` | Verify, compact, commit, push, and confirm a checkpoint |
+| `.\scripts\test.ps1` | Run tests, lint, and compilation checks |
+
+The underlying Python CLI remains available directly:
 
 | Command | Purpose |
 | --- | --- |
@@ -308,7 +341,7 @@ the complete corpus into memory.
 ## Development
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
+.\scripts\setup.ps1 -Profile 3080 -Dev
 .\scripts\test.ps1
 ```
 

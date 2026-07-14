@@ -13,12 +13,18 @@ python 4090/review.py --limit 20
 The preferred equivalent is:
 
 ```powershell
-python main.py run --profile 4090 --all
+.\scripts\run.ps1 -Profile 4090 run --all
 ```
 
 Both forms use the root `data/` checkpoint and output directories.
 
-The `4090` profile uses seven CPU parser workers feeding one shared GPU model
-with candidate/inference/encoding batches of `150`/`1600`/`256`. Run
-`scripts\benchmark.ps1 -Profile 4090` on that PC to create its ignored local
+Before resuming a checkpoint from the 3080 PC, receive and verify it with:
+
+```powershell
+.\scripts\handoff.ps1 -Direction pull -Profile 4090
+```
+
+The tracked `4090` profile uses seven CPU parser workers feeding one shared GPU
+model with candidate/inference/encoding batches of `150`/`1600`/`256`. Run
+`.\scripts\benchmark.ps1 -Profile 4090` on that PC to create its ignored local
 autotuning override.

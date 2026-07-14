@@ -22,5 +22,14 @@ if ($NoWrite) {
     $Arguments += "--no-write"
 }
 
-& $Python @Arguments
-exit $LASTEXITCODE
+$ExitCode = 1
+Push-Location $Root
+try {
+    & $Python @Arguments
+    $ExitCode = $LASTEXITCODE
+}
+finally {
+    Pop-Location
+}
+
+exit $ExitCode

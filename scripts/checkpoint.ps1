@@ -9,6 +9,20 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 $Lock = Join-Path $Root "data\.crawler.lock"
 
+function Update-OriginMain {
+    git fetch --prune origin
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to fetch origin/main before handoff."
+    }
+    $BehindText = git rev-list --count HEAD..origin/main
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to compare this checkpoint with origin/main."
+    }
+    if ([int]$BehindText -gt 0) {
+        throw "origin/main is ahead. Run .\scripts\handoff.ps1 -Direction pull first."
+    }
+}
+
 if (-not (Test-Path -LiteralPath $Python)) {
     throw "Virtual environment is missing. Run .\scripts\setup.ps1 first."
 }
@@ -18,6 +32,17 @@ if (Test-Path -LiteralPath $Lock) {
 
 Push-Location $Root
 try {
+    $Branch = git branch --show-current
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to determine the current Git branch."
+    }
+    if ($Branch -ne "main") {
+        throw "Workstation checkpoints must be sent from main; current branch is '$Branch'."
+    }
+    if (-not $NoPush) {
+        Update-OriginMain
+    }
+
     $CheckpointArgs = @((Join-Path $Root "main.py"), "checkpoint")
     if ($ForceVacuum) {
         $CheckpointArgs += "--force-vacuum"
@@ -41,18 +66,23 @@ try {
     }
 
     if (-not $NoPush) {
-        git fetch --prune origin
-        if ($LASTEXITCODE -ne 0) {
-            throw "Unable to fetch origin before handoff."
-        }
-        $Behind = [int](git rev-list --count HEAD..origin/main)
-        if ($Behind -gt 0) {
-            throw "origin/main is ahead. Run .\scripts\handoff.ps1 -Direction pull first."
-        }
+        Update-OriginMain
         git lfs status
-        git push origin HEAD
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect Git LFS state before push."
+        }
+        git push origin HEAD:main
         if ($LASTEXITCODE -ne 0) {
             throw "Checkpoint push failed with exit code $LASTEXITCODE."
+        }
+        git fetch origin
+        if ($LASTEXITCODE -ne 0) {
+            throw "Checkpoint was pushed, but origin/main could not be confirmed."
+        }
+        $LocalHead = git rev-parse HEAD
+        $RemoteHead = git rev-parse origin/main
+        if ($LASTEXITCODE -ne 0 -or $LocalHead -ne $RemoteHead) {
+            throw "Checkpoint push could not be verified against origin/main."
         }
     }
 }

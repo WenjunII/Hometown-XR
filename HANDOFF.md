@@ -29,7 +29,7 @@ cd hometown-xr
 git lfs install
 git lfs pull
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\setup.ps1 -Profile 3080
+.\scripts\setup.ps1 -Profile 3080 -Tune
 ```
 
 Use `-Profile 4090` on the other PC. Optionally tune each machine once:
@@ -37,6 +37,9 @@ Use `-Profile 4090` on the other PC. Optionally tune each machine once:
 ```powershell
 .\scripts\benchmark.ps1 -Profile 3080
 ```
+
+The setup command's `-Tune` switch runs a shorter benchmark instead. Both forms
+write only the ignored local hardware override for the current PC.
 
 ## Send A Checkpoint
 
@@ -57,6 +60,11 @@ push in one command:
 .\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"
 ```
 
+The script first confirms that the current branch is `main` and that
+`origin/main` is not ahead. After the integrity checkpoint and commit, it
+checks Git LFS, pushes explicitly to `origin/main`, and confirms that the local
+and remote commit IDs match.
+
 The compatibility form is
 `.\scripts\handoff.ps1 -Direction push -Message "checkpoint: hand off crawler state"`.
 Use `-NoPush` with `checkpoint.ps1` to create the verified local commit without
@@ -73,14 +81,14 @@ The destination worktree must be clean:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\handoff.ps1 -Direction pull
-.\.venv\Scripts\python.exe main.py doctor --profile 3080
-.\.venv\Scripts\python.exe main.py status
-.\.venv\Scripts\python.exe main.py verify-output
-.\.venv\Scripts\python.exe main.py cache stats
+.\scripts\handoff.ps1 -Direction pull -Profile 3080
 ```
 
-Rerun `scripts\setup.ps1` whenever dependency lock files changed. Resume with:
+The receive script checks every Git command, permits only a fast-forward pull,
+pulls Git LFS objects, and then runs `doctor`, `status`, and `verify-output`.
+Use `-SkipVerify` only for maintenance when the local Python environment has
+not been installed yet. Rerun `scripts\setup.ps1` whenever dependency lock
+files changed. Resume with:
 
 ```powershell
 .\scripts\run.ps1 -Profile 3080 run --all
