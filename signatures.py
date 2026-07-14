@@ -24,6 +24,7 @@ from config import (
     SEMANTIC_THRESHOLD,
 )
 from keywords import get_all_keywords_flat
+from text_normalization import normalization_contract
 
 
 def filter_contract(
@@ -43,6 +44,7 @@ def filter_contract(
             "minimum": MIN_PARAGRAPH_LENGTH,
             "maximum": MAX_PARAGRAPH_LENGTH,
         },
+        "text_normalization": normalization_contract(),
         "narrative_filter": {
             "enabled": NARRATIVE_FILTER_ENABLED,
             "minimum_indicators": MIN_NARRATIVE_INDICATORS,

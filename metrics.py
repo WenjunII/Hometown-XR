@@ -72,6 +72,7 @@ class MetricsRecorder:
             "language_cache_misses": 0,
             "cuda_oom_retries": 0,
             "batch_reductions": 0,
+            "process_pool_restarts": 0,
         }
 
     def add_target_files(self, count: int) -> None:
@@ -121,6 +122,10 @@ class MetricsRecorder:
         # span multiple sources, so they are intentionally not added here.
         del candidates
         self.flush()
+
+    def record_pool_restart(self) -> None:
+        self.counters["process_pool_restarts"] += 1
+        self.flush(force=True)
 
     def snapshot(self, final: bool = False) -> dict:
         elapsed = max(time.monotonic() - self._started_monotonic, 1e-9)

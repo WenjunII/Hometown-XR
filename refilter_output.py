@@ -26,6 +26,7 @@ from matcher import NarrativeFilter
 from output import _current_filename, _legacy_filename, _source_digest
 from record_identity import content_fingerprint, stable_record_id
 from run_lock import CrawlerRunLock
+from text_normalization import normalize_extracted_text
 
 logging.basicConfig(
     level=logging.INFO,
@@ -184,16 +185,18 @@ def _stage_refiltered_output(
                                 f"Output shard contains multiple sources: {source_file}"
                             )
 
-                        narrative_score = narrative_filter.count_indicators(
-                            record.get("paragraph", "")
-                        )
+                        original_paragraph = str(record.get("paragraph", ""))
+                        paragraph = normalize_extracted_text(original_paragraph)
+                        narrative_score = narrative_filter.count_indicators(paragraph)
                         passes = (
                             resolver.status(source_path) == "completed"
                             and float(record.get("semantic_score", 0)) >= semantic_threshold
                             and narrative_score >= narrative_threshold
                         )
                         if passes:
-                            paragraph = record.get("paragraph", "")
+                            if paragraph != original_paragraph:
+                                record.setdefault("raw_paragraph", original_paragraph)
+                            record["paragraph"] = paragraph
                             record_id = stable_record_id(
                                 record.get("crawl_id", ""),
                                 source_path,

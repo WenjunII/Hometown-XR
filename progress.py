@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import heapq
 import logging
 import sqlite3
 import uuid
@@ -18,6 +20,7 @@ from config import (
     RETRY_BASE_SECONDS,
     RETRY_MAX_SECONDS,
 )
+from failure_analysis import classify_failure
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +232,28 @@ class ProgressTracker:
                 updated += cursor.rowcount
         return updated
 
+    def get_file_states(self, file_paths: Iterable[str]) -> dict[str, dict]:
+        """Return current state for a bounded set of source paths."""
+        paths = list(dict.fromkeys(file_paths))
+        if not paths:
+            return {}
+        states = {}
+        with self._get_conn() as conn:
+            for path in paths:
+                row = conn.execute(
+                    "SELECT status, records_processed, matches_found, error_message "
+                    "FROM processing_state WHERE file_path = ?",
+                    (path,),
+                ).fetchone()
+                if row is not None:
+                    states[path] = {
+                        "status": row["status"],
+                        "records_processed": int(row["records_processed"] or 0),
+                        "matches_found": int(row["matches_found"] or 0),
+                        "error": row["error_message"],
+                    }
+        return states
+
     def release_claim(self, claim: ClaimedFile) -> bool:
         """Return an interrupted or cancelled claim to pending work."""
         with self._get_conn() as conn:
@@ -322,6 +347,89 @@ class ProgressTracker:
             "unknown": int(row["unknown"] or 0),
             "stale": int(row["stale"] or 0),
         }
+
+    def sample_completed_for_audit(
+        self,
+        current_signature: str,
+        per_crawl: int,
+        crawl_ids: Iterable[str] | None = None,
+        include_current: bool = False,
+    ) -> list[dict]:
+        """Select a deterministic bounded sample without changing checkpoint state."""
+        if per_crawl <= 0:
+            raise ValueError("per_crawl must be positive")
+        selected_crawls = sorted(set(crawl_ids or []))
+        clauses = ["status = 'completed'"]
+        params: list[object] = []
+        if selected_crawls:
+            placeholders = ", ".join("?" for _ in selected_crawls)
+            clauses.append(f"crawl_id IN ({placeholders})")
+            params.extend(selected_crawls)
+        if not include_current:
+            clauses.append("COALESCE(filter_signature, '') != ?")
+            params.append(current_signature)
+
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT file_path, crawl_id, matches_found, completed_at, filter_signature "
+                "FROM processing_state WHERE "
+                + " AND ".join(clauses)
+                + " ORDER BY crawl_id, file_path",
+                params,
+            )
+            buckets: dict[tuple[str, str], list[tuple[int, str, dict]]] = {}
+            for row in rows:
+                signature = str(row["filter_signature"] or "")
+                signature_state = (
+                    "unknown"
+                    if not signature
+                    else "current"
+                    if signature == current_signature
+                    else "stale"
+                )
+                payload = {
+                    "crawl_id": str(row["crawl_id"]),
+                    "file_path": str(row["file_path"]),
+                    "historical_matches": int(row["matches_found"] or 0),
+                    "completed_at": row["completed_at"],
+                    "signature_state": signature_state,
+                    "filter_signature": signature,
+                }
+                rank = int.from_bytes(
+                    hashlib.sha256(
+                        f"{current_signature}\0{payload['file_path']}".encode("utf-8")
+                    ).digest()[:8],
+                    "big",
+                )
+                yield_bucket = "matched" if payload["historical_matches"] > 0 else "zero"
+                heap = buckets.setdefault((payload["crawl_id"], yield_bucket), [])
+                item = (-rank, payload["file_path"], payload)
+                if len(heap) < per_crawl:
+                    heapq.heappush(heap, item)
+                elif item > heap[0]:
+                    heapq.heapreplace(heap, item)
+
+        candidates_by_crawl: dict[str, dict[str, list[tuple[int, str, dict]]]] = {}
+        for (crawl_id, yield_bucket), values in buckets.items():
+            candidates_by_crawl.setdefault(crawl_id, {})[yield_bucket] = sorted(
+                values,
+                key=lambda value: (-value[0], value[1]),
+            )
+
+        result = []
+        for crawl_id in sorted(candidates_by_crawl):
+            groups = candidates_by_crawl[crawl_id]
+            chosen: list[tuple[int, str, dict]] = []
+            for yield_bucket in ("matched", "zero"):
+                if groups.get(yield_bucket) and len(chosen) < per_crawl:
+                    chosen.append(groups[yield_bucket].pop(0))
+            remaining = sorted(
+                [item for values in groups.values() for item in values],
+                key=lambda value: (-value[0], value[1]),
+            )
+            chosen.extend(remaining[: per_crawl - len(chosen)])
+            result.extend(item[2] for item in chosen)
+        return result
 
     def stamp_unknown_completed(self, current_signature: str) -> int:
         """Adopt audited legacy completions without forcing an expensive recrawl."""
@@ -465,6 +573,66 @@ class ProgressTracker:
                 params,
             )
             return cursor.rowcount
+
+    def get_failure_summary(
+        self,
+        crawl_id: str | None = None,
+        examples_per_category: int = 3,
+    ) -> dict:
+        """Group failed sources into stable operational categories."""
+        if examples_per_category < 0:
+            raise ValueError("examples_per_category cannot be negative")
+        clauses = ["status = 'failed'"]
+        params: list[object] = []
+        if crawl_id is not None:
+            clauses.append("crawl_id = ?")
+            params.append(crawl_id)
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT file_path, crawl_id, error_message, attempt_count, next_retry_at "
+                "FROM processing_state WHERE "
+                + " AND ".join(clauses)
+                + " ORDER BY crawl_id, file_path",
+                params,
+            ).fetchall()
+
+        now = _utc_now().isoformat()
+        categories: dict[str, dict] = {}
+        retryable = 0
+        exhausted = 0
+        for row in rows:
+            attempt_count = int(row["attempt_count"] or 0)
+            ready = attempt_count < MAX_FILE_ATTEMPTS and (
+                row["next_retry_at"] is None or str(row["next_retry_at"]) <= now
+            )
+            retryable += int(ready)
+            exhausted += int(attempt_count >= MAX_FILE_ATTEMPTS)
+            category = classify_failure(row["error_message"])
+            entry = categories.setdefault(category, {"count": 0, "examples": []})
+            entry["count"] += 1
+            if len(entry["examples"]) < examples_per_category:
+                entry["examples"].append(
+                    {
+                        "crawl_id": row["crawl_id"],
+                        "file_path": row["file_path"],
+                        "attempt_count": attempt_count,
+                        "next_retry_at": row["next_retry_at"],
+                        "error": str(row["error_message"] or "")[:500],
+                    }
+                )
+        return {
+            "failed": len(rows),
+            "retryable_now": retryable,
+            "attempts_exhausted": exhausted,
+            "crawl_id": crawl_id,
+            "categories": {
+                key: categories[key]
+                for key in sorted(
+                    categories,
+                    key=lambda value: (-categories[value]["count"], value),
+                )
+            },
+        }
 
     def get_summary(self, crawl_id: str | None = None) -> dict[str, int | float]:
         """Return aggregate state, including work ready for this run."""

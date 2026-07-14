@@ -24,6 +24,7 @@ from config import (
     EVALUATION_UNCERTAIN_SAMPLE_RATE,
     MIN_NARRATIVE_INDICATORS,
     OUTPUT_DIR,
+    OUTPUT_SCHEMA_VERSION,
     REPLAY_PATH,
     SEMANTIC_THRESHOLD,
 )
@@ -152,7 +153,7 @@ class DecisionSampler:
             language, confidence = language_detector.detect(paragraph.text)
             selected.append(
                 {
-                    "schema_version": 3,
+                    "schema_version": OUTPUT_SCHEMA_VERSION,
                     "sample_id": sample_id,
                     "collected_at": _utc_now(),
                     "crawl_id": paragraph.crawl_id,
@@ -183,6 +184,8 @@ class DecisionSampler:
                     ).category,
                 }
             )
+            if paragraph.raw_text and paragraph.raw_text != paragraph.text:
+                selected[-1]["raw_paragraph"] = paragraph.raw_text
             self._known.add(sample_id)
             if self.written + len(selected) >= self.max_samples:
                 break
@@ -326,7 +329,7 @@ def _output_annotation_rows(output_dir: str | Path) -> Iterator[dict]:
             record.get("paragraph", ""),
         )
         yield _enrich_for_active_learning({
-            "schema_version": 3,
+            "schema_version": int(record.get("schema_version", OUTPUT_SCHEMA_VERSION)),
             "sample_id": sample_id,
             "sample_origin": "committed_output",
             "crawl_id": record.get("crawl_id", ""),
@@ -336,6 +339,7 @@ def _output_annotation_rows(output_dir: str | Path) -> Iterator[dict]:
             "language": record.get("language", "unknown"),
             "language_confidence": record.get("language_confidence", 0.0),
             "paragraph": record.get("paragraph", ""),
+            "raw_paragraph": record.get("raw_paragraph", ""),
             "matched_keywords": record.get("matched_keywords", []),
             "semantic_score": record.get("semantic_score"),
             "concept_match": record.get("concept_match", ""),
@@ -441,13 +445,106 @@ def build_annotation_sample(
         rows.pop(removable)
     rows.sort(key=lambda row: (str(row.get("language", "")), _rank(row)))
     _atomic_jsonl(annotation_path, rows)
+    predicted_positive = sum(bool(row.get("predicted_accept")) for row in rows)
+    predicted_negative = len(rows) - predicted_positive
+    balanced = predicted_positive > 0 and predicted_negative > 0
     return {
         "path": str(annotation_path),
         "samples": len(rows),
-        "predicted_positive": sum(bool(row.get("predicted_accept")) for row in rows),
-        "predicted_negative": sum(not bool(row.get("predicted_accept")) for row in rows),
+        "predicted_positive": predicted_positive,
+        "predicted_negative": predicted_negative,
         "labeled": sum(row.get("label") in {"positive", "negative"} for row in rows),
         "uncertain": sum(float(row.get("uncertainty_score", 0.0)) >= 0.5 for row in rows),
+        "balanced_predictions": balanced,
+        "warning": (
+            None
+            if balanced
+            else "No rejected candidates are available; run a bounded audit before calibration."
+        ),
+    }
+
+
+def evaluation_status(
+    annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
+    candidate_path: str | Path = EVALUATION_DIR / "candidate_samples.jsonl",
+    replay_path: str | Path = REPLAY_PATH,
+) -> dict:
+    """Summarize evaluation readiness without requiring human labels."""
+    annotations = _read_jsonl(Path(annotation_path))
+    candidates_by_id = {
+        str(row.get("sample_id", "")): row
+        for row in [*_read_jsonl(Path(replay_path)), *_read_jsonl(Path(candidate_path))]
+        if row.get("sample_id")
+    }
+    candidates = list(candidates_by_id.values())
+    labels = Counter(
+        str(row.get("label"))
+        for row in annotations
+        if row.get("label") in {"positive", "negative"}
+    )
+    labeled = labels["positive"] + labels["negative"]
+    predicted_positive = sum(bool(row.get("predicted_accept")) for row in annotations)
+    predicted_negative = len(annotations) - predicted_positive
+    candidate_positive = sum(bool(row.get("predicted_accept")) for row in candidates)
+    candidate_negative = len(candidates) - candidate_positive
+    baseline_ready = (
+        labeled >= EVALUATION_MIN_BASELINE_LABELS
+        and labels["positive"] > 0
+        and labels["negative"] > 0
+    )
+
+    next_actions = []
+    if not annotations:
+        next_actions.append("Build a sample with `python main.py evaluation sample`.")
+    if predicted_negative == 0:
+        if candidate_negative:
+            next_actions.append(
+                "Rebuild the sample to include the available rejected candidates."
+            )
+        else:
+            next_actions.append(
+                "Run a bounded audit to collect rejected candidates before calibration."
+            )
+    if annotations and labeled < EVALUATION_MIN_BASELINE_LABELS:
+        next_actions.append(
+            f"Label at least {EVALUATION_MIN_BASELINE_LABELS - labeled} more samples."
+        )
+    if labeled and not labels["positive"]:
+        next_actions.append("Add at least one human-labeled positive sample.")
+    if labeled and not labels["negative"]:
+        next_actions.append("Add at least one human-labeled negative sample.")
+    if baseline_ready and predicted_negative:
+        next_actions.append("Generate the evaluation report and review threshold changes.")
+
+    return {
+        "schema_version": 1,
+        "annotation_path": str(Path(annotation_path)),
+        "samples": len(annotations),
+        "labeled": labeled,
+        "unlabeled": len(annotations) - labeled,
+        "labels": {
+            "positive": labels["positive"],
+            "negative": labels["negative"],
+        },
+        "sample_predictions": {
+            "accepted": predicted_positive,
+            "rejected": predicted_negative,
+            "balanced": predicted_positive > 0 and predicted_negative > 0,
+        },
+        "candidate_reservoir": {
+            "samples": len(candidates),
+            "accepted": candidate_positive,
+            "rejected": candidate_negative,
+        },
+        "origins": dict(
+            sorted(Counter(str(row.get("sample_origin", "unknown")) for row in annotations).items())
+        ),
+        "baseline": {
+            "ready": baseline_ready,
+            "minimum_labels": EVALUATION_MIN_BASELINE_LABELS,
+            "requires_both_classes": True,
+        },
+        "next_actions": next_actions,
     }
 
 
@@ -455,6 +552,7 @@ def annotate(
     annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
     language: str | None = None,
     limit: int | None = None,
+    predicted_accept: bool | None = None,
 ) -> dict:
     path = Path(annotation_path)
     rows = _read_jsonl(path)
@@ -466,6 +564,8 @@ def annotate(
         if row.get("label") in {"positive", "negative"}:
             continue
         if language and row.get("language") != language:
+            continue
+        if predicted_accept is not None and bool(row.get("predicted_accept")) != predicted_accept:
             continue
         if limit is not None and labeled_now >= limit:
             break
@@ -633,7 +733,38 @@ def evaluation_report(
         if row.get("label") in {"positive", "negative"}
     ]
     if not rows:
-        raise ValueError("No human-labeled rows are available")
+        status = evaluation_status(annotation_path=annotation_path)
+        payload = {
+            "schema_version": 2,
+            "generated_at": _utc_now(),
+            "human_labeled_samples": 0,
+            "unlabeled_samples": len(all_rows),
+            "label_balance": {"positive": 0, "negative": 0},
+            "baseline": {
+                "ready": False,
+                "minimum_labels": EVALUATION_MIN_BASELINE_LABELS,
+                "requires_both_classes": True,
+                "warning": "No human-labeled rows are available yet.",
+            },
+            "overall": None,
+            "by_language": {},
+            "semantic_calibration": [],
+            "content_taxonomy": {
+                "human_labeled": {},
+                "predicted": {},
+                "agreement": None,
+            },
+            "recommended_thresholds": None,
+            "false_positives": [],
+            "false_negatives": [],
+            "status": status,
+        }
+        report_path = Path(report_path)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = report_path.with_suffix(report_path.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary, report_path)
+        return payload
 
     positives = sum(row["label"] == "positive" for row in rows)
     negatives = len(rows) - positives

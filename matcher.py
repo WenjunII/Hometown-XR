@@ -75,6 +75,7 @@ class Match:
     paragraph_index: int = 0
     context_before: str = ""
     context_after: str = ""
+    raw_text: str = ""
 
 
 @dataclass
@@ -106,6 +107,7 @@ class MatchDecision:
             paragraph_index=self.paragraph.paragraph_index,
             context_before=self.paragraph.context_before,
             context_after=self.paragraph.context_after,
+            raw_text=self.paragraph.raw_text,
         )
 
 

@@ -17,6 +17,10 @@ The extractor uses two local machine-learning models:
 Neither model is a generative LLM. The crawler does not call OpenAI, Gemini,
 Anthropic, or another hosted text-generation API.
 
+Before either model sees text, `ftfy` repairs mojibake, decodes HTML entities,
+and normalizes Unicode to NFC. Schema-4 output keeps `raw_paragraph` whenever
+that cleanup changes the source, so matching improves without losing provenance.
+
 A versioned local SQLite cache stores sentence embeddings, raw semantic scores,
 and raw language predictions by normalized text hash. Model revision, precision,
 and concept-anchor version are part of each cache namespace, so stale results
@@ -62,7 +66,9 @@ One run has seven lightweight CPU parser processes and one inference owner:
 
 ```text
 WET/ARC sources
-    -> bounded CPU download/parse/keyword workers
+    -> bounded CPU download/parse workers
+    -> versioned entity/encoding normalization
+    -> multilingual keyword prefilter
     -> bounded candidate queue
     -> hard-boilerplate prefilter
     -> versioned score/embedding cache
@@ -171,10 +177,11 @@ or `--no-cache` only for diagnosis.
 
 Each paragraph passes through:
 
-1. A multilingual keyword prefilter from `keywords.py`.
-2. A behavior-preserving hard-boilerplate/narrative prefilter.
-3. Cached or fresh sentence-transformer similarity against home concepts.
-4. A multilingual first-person narrative filter.
+1. Versioned HTML-entity, encoding, and Unicode normalization.
+2. A multilingual keyword prefilter from `keywords.py`.
+3. A behavior-preserving hard-boilerplate/narrative prefilter.
+4. Cached or fresh sentence-transformer similarity against home concepts.
+5. A multilingual first-person narrative filter.
 
 CJK, Japanese, Korean, and Thai keywords use substring matching where word
 boundaries are unreliable. FastText predictions below the confidence threshold
@@ -187,9 +194,10 @@ language. At checkpoint time, local candidates merge into the bounded,
 deterministic `data/evaluation/replay.jsonl.gz` reservoir shared by both PCs.
 Human labels are never synthesized.
 
-Every run records a filter signature over the model revision, thresholds,
-paragraph bounds, narrative rules, keywords, and concept anchors. New output,
-manifests, progress rows, and run history carry the signature and run ID.
+Every run records a filter signature over text normalization, the model
+revision, thresholds, paragraph bounds, narrative rules, keywords, and concept
+anchors. New output, manifests, progress rows, and run history carry the
+signature and run ID.
 
 ## Commands
 
@@ -204,6 +212,8 @@ resolve the project root regardless of the caller's current directory:
 | `.\scripts\benchmark.ps1 -Profile 3080` | Audit FP16 safety and write this PC's local override |
 | `.\scripts\handoff.ps1 -Direction pull -Profile 3080` | Fast-forward, pull LFS data, and verify the received checkpoint |
 | `.\scripts\filter-state.ps1` | Inspect current, stale, and unsigned completed work |
+| `.\scripts\audit.ps1` | Plan a deterministic, isolated historical-source audit |
+| `.\scripts\audit.ps1 -Action run -Profile 3080 -Apply` | Run the reviewed audit without changing historical state |
 | `.\scripts\refresh-results.ps1` | Dry-run current filters and rebuild the local canonical dataset |
 | `.\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"` | Verify, compact, commit, push, and confirm a checkpoint |
 | `.\scripts\test.ps1` | Run tests, lint, and compilation checks |
@@ -223,6 +233,7 @@ The underlying Python CLI remains available directly:
 | `python main.py cache stats` | Inspect the local inference cache |
 | `python main.py cache clear` | Rebuild the local inference cache from empty |
 | `python main.py retry --all` | Retry all failed sources immediately |
+| `python main.py failures` | Group failures into HTTP, connection, worker, inference, and output categories |
 | `python main.py recover --minutes 10` | Release expired source leases |
 | `python main.py verify-output` | Verify committed shard checksums |
 | `python main.py checkpoint` | Verify and compact state for handoff |
@@ -231,6 +242,9 @@ The underlying Python CLI remains available directly:
 | `python main.py database restore` | Restore the local SQLite DB from the shared archive |
 | `python main.py database check` | Confirm local SQLite state matches the shared archive |
 | `python main.py parquet --dedupe exact` | Build partitioned Parquet output |
+| `python main.py audit plan --per-crawl 2` | Select matched and zero-match completed sources without changing state |
+| `python main.py audit run --per-crawl 2 --profile 3080 --yes` | Run the selection in an isolated database/output tree |
+| `python main.py evaluation status` | Show sample balance, labels, readiness, and the next action |
 | `python main.py evaluation sample` | Build a real-text annotation sample |
 | `python main.py evaluation annotate` | Label samples interactively |
 | `python main.py evaluation report` | Compute precision, recall, F1, and tuning |
@@ -260,12 +274,13 @@ data/
     unknown/
 ```
 
-Schema version 3 records add run provenance and adjacent document context.
-Schema-2 records remain supported and do not need rewriting:
+Schema version 4 records add versioned normalized text while retaining the raw
+source paragraph whenever it changed. Schema-2 and schema-3 records remain
+supported and do not need rewriting:
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "record_id": "<sha256>",
   "content_fingerprint": "<sha256>",
   "crawl_id": "CC-MAIN-2026-12",
@@ -277,6 +292,7 @@ Schema-2 records remain supported and do not need rewriting:
   "language": "en",
   "language_confidence": 0.9821,
   "paragraph": "I remember the home where I grew up...",
+  "raw_paragraph": "I remember the home where I grew up&amp;...",
   "document_id": "<sha256>",
   "paragraph_index": 4,
   "context_before": "The paragraph immediately before...",
@@ -372,6 +388,20 @@ retained, so those changes cannot be applied retrospectively to accepted output
 alone. Before a full recrawl, compare a representative sample of completed
 sources in an isolated audit. Do not use `reset` merely to refresh results.
 
+Plan first, then explicitly run the bounded audit:
+
+```powershell
+.\scripts\audit.ps1 -PerCrawl 2
+.\scripts\audit.ps1 -Action run -Profile 3080 -PerCrawl 2 -Apply
+```
+
+Selection is deterministic and stratified by crawl plus historical yield: when
+available, each crawl contributes both a source that previously matched and a
+zero-match source. The audit writes its temporary database and output under
+ignored `data/audits/`, leaves `data/progress.db` and `data/output/` untouched,
+records local performance metrics, and contributes sampled reject decisions to
+the normal evaluation reservoir. The maximum is ten sources per crawl.
+
 Use filter signatures to make that audit selective:
 
 ```powershell
@@ -393,14 +423,20 @@ available for automation.
 Build an unlabeled sample from real committed records and sampled live rejects:
 
 ```powershell
+python main.py evaluation status
 python main.py evaluation sample --size 400
-python main.py evaluation annotate
+python main.py evaluation annotate --prediction rejected --limit 25
+python main.py evaluation annotate --prediction accepted --limit 75
 python main.py evaluation report
 ```
 
-Sampling is deterministic, language-stratified, and prioritizes uncertain
+`evaluation status` is always safe and explains whether more audit samples or
+human labels are needed. Reports return a structured not-ready result instead
+of a traceback when no labels exist. Sampling is deterministic,
+language-stratified, and prioritizes uncertain
 examples near semantic or narrative thresholds. Existing labels are kept when
-a sample is rebuilt. `annotate --language en --limit 25` supports focused work.
+a sample is rebuilt. `annotate --language en --limit 25` and
+`--prediction accepted|rejected` support focused work.
 Reports use only human-labeled rows and include confidence intervals,
 calibration bins, label-balance readiness, per-language support warnings,
 content-category agreement, false-positive/false-negative IDs, and a
@@ -443,6 +479,7 @@ downloading GPU models or Git LFS data.
 
 ```text
 main.py                 CLI and run orchestration
+audit.py                isolated historical-source planning and comparison
 pipeline.py             bounded CPU queue and shared GPU inference owner
 progress.py             SQLite leases, retries, and checkpoint migration
 output.py               source transactions, stable IDs, and manifests
@@ -450,9 +487,11 @@ inference_cache.py      versioned embedding, score, and language cache
 checkpoint.py           integrity verification and handoff compaction
 database_checkpoint.py  compressed SQLite archive, restore, and sync checks
 processor.py            WET/ARC parsing and counters
+text_normalization.py   versioned entity, encoding, and Unicode repair
 matcher.py              keyword, semantic, and narrative filters
 evaluation.py           real-text sampling, annotation, and reports
 metrics.py              run rates, GPU timing, and ETA
+failure_analysis.py     stable operational failure categories
 benchmark.py            local hardware benchmark and autotuning
 dedupe.py               disk-backed exact and SimHash duplicate index
 parquet_export.py       staged partitioned analytical export

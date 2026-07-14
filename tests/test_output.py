@@ -39,13 +39,13 @@ def test_source_commit_is_idempotent_and_records_source(tmp_path):
     records = _read_records(outputs[0])
     assert len(records) == 1
     assert records[0]["source_file"] == source
-    assert records[0]["schema_version"] == 3
+    assert records[0]["schema_version"] == 4
     assert len(records[0]["record_id"]) == 64
     assert len(records[0]["content_fingerprint"]) == 64
     assert writer.verify_source(source) == []
 
 
-def test_schema_three_records_include_context_and_run_provenance(tmp_path):
+def test_schema_four_records_include_context_raw_text_and_run_provenance(tmp_path):
     writer = OutputWriter(
         tmp_path / "output",
         run_id="run-123",
@@ -57,6 +57,7 @@ def test_schema_three_records_include_context_and_run_provenance(tmp_path):
     match.paragraph_index = 4
     match.context_before = "before"
     match.context_after = "after"
+    match.raw_text = "I remember my childhood home &amp; my family."
     transaction = writer.begin_source(source)
     transaction.write_matches([match], [("en", 0.99)])
     transaction.commit()
@@ -66,6 +67,7 @@ def test_schema_three_records_include_context_and_run_provenance(tmp_path):
     assert record["paragraph_index"] == 4
     assert record["context_before"] == "before"
     assert record["context_after"] == "after"
+    assert record["raw_paragraph"] == match.raw_text
     assert record["run_id"] == "run-123"
     assert record["filter_signature"] == "f" * 64
     manifest = writer.get_manifest(source)

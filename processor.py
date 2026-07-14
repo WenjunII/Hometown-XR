@@ -11,6 +11,7 @@ from warcio.archiveiterator import ArchiveIterator
 
 from config import DOCUMENT_CONTEXT_CHARS, MAX_PARAGRAPH_LENGTH, MIN_PARAGRAPH_LENGTH
 from record_identity import stable_document_id
+from text_normalization import normalize_extracted_text
 
 
 @dataclass
@@ -24,6 +25,7 @@ class Paragraph:
     paragraph_index: int = 0
     context_before: str = ""
     context_after: str = ""
+    raw_text: str = ""
 
 
 @dataclass
@@ -167,8 +169,11 @@ def _extract_paras(
     source_file: str = "",
     document_index: int = 0,
 ) -> Iterator[tuple[Paragraph, list[str]]]:
-    paragraphs = [" ".join(value.split()) for value in content.split("\n\n")]
-    paragraphs = [value for value in paragraphs if value]
+    raw_paragraphs = [" ".join(value.split()) for value in content.split("\n\n")]
+    raw_paragraphs = [value for value in raw_paragraphs if value]
+    paragraphs = [
+        " ".join(normalize_extracted_text(value).split()) for value in raw_paragraphs
+    ]
     document_id = stable_document_id(
         crawl_id,
         source_file,
@@ -205,6 +210,11 @@ def _extract_paras(
                 context_after=(
                     paragraphs[paragraph_index + 1][:DOCUMENT_CONTEXT_CHARS]
                     if paragraph_index + 1 < len(paragraphs)
+                    else ""
+                ),
+                raw_text=(
+                    raw_paragraphs[paragraph_index]
+                    if raw_paragraphs[paragraph_index] != text
                     else ""
                 ),
             ),

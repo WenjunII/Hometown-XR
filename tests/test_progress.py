@@ -87,6 +87,30 @@ def test_failed_attempt_is_retryable_and_can_be_reset(tmp_path):
     assert _row(tracker.db_path, "one.wet.gz")["status"] == "pending"
 
 
+def test_failure_summary_groups_transient_and_worker_errors(tmp_path):
+    tracker = ProgressTracker(tmp_path / "progress.db")
+    tracker.initialize_paths(["server.wet.gz", "worker.wet.gz"], "crawl")
+    server, worker = tracker.claim_files("crawl", 2)
+    tracker.mark_failed(
+        server.file_path,
+        "request /segments/142900/file failed with HTTP 503 service unavailable",
+        server.lease_id,
+        retry_base_seconds=0,
+    )
+    tracker.mark_failed(
+        worker.file_path,
+        "A process in the process pool was terminated abruptly",
+        worker.lease_id,
+        retry_base_seconds=0,
+    )
+
+    result = tracker.get_failure_summary("crawl", examples_per_category=1)
+    assert result["failed"] == 2
+    assert result["retryable_now"] == 2
+    assert result["categories"]["http_503"]["count"] == 1
+    assert result["categories"]["process_pool"]["count"] == 1
+
+
 def test_recovers_only_stale_processing_lease(tmp_path):
     tracker = ProgressTracker(tmp_path / "progress.db")
     tracker.initialize_paths(["stale.wet.gz", "live.wet.gz"], "crawl")
@@ -123,6 +147,26 @@ def test_filter_signatures_report_stamp_and_selectively_reset(tmp_path):
     assert _row(tracker.db_path, "unknown")["status"] == "completed"
     assert tracker.stamp_unknown_completed("new") == 1
     assert _row(tracker.db_path, "unknown")["filter_signature"] == "new"
+
+
+def test_audit_sampling_is_deterministic_stratified_and_read_only(tmp_path):
+    tracker = ProgressTracker(tmp_path / "progress.db")
+    paths = [f"a-{index}" for index in range(5)] + [f"b-{index}" for index in range(5)]
+    tracker.initialize_paths(paths[:5], "crawl-a")
+    tracker.initialize_paths(paths[5:], "crawl-b")
+    for index, path in enumerate(paths):
+        tracker.mark_completed(path, 10, int(index % 5 == 0), filter_signature="old")
+    tracker.initialize_paths(["current"], "crawl-a")
+    tracker.mark_completed("current", 10, 1, filter_signature="new")
+
+    first = tracker.sample_completed_for_audit("new", 2)
+    second = tracker.sample_completed_for_audit("new", 2)
+    assert first == second
+    assert len(first) == 4
+    assert {row["crawl_id"] for row in first} == {"crawl-a", "crawl-b"}
+    assert all(row["signature_state"] == "stale" for row in first)
+    assert sum(row["historical_matches"] > 0 for row in first) == 2
+    assert tracker.get_summary()["completed"] == 11
 
 
 def test_compact_rebuilds_oversized_without_rowid_schema_and_guards_active_work(tmp_path):

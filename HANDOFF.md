@@ -17,6 +17,7 @@ The following remain local to each PC:
 - `data/cache/`
 - `data/metrics/`
 - `data/parquet/`
+- `data/audits/`
 - `data/progress.db` (restored working copy)
 - uncheckpointed live candidate evaluation samples
 
@@ -107,6 +108,16 @@ Inspect filter-signature coverage without changing checkpoint state:
 .\scripts\filter-state.ps1
 ```
 
+After a recall-affecting filter change, plan an isolated audit before stamping
+or resetting historical work:
+
+```powershell
+.\scripts\audit.ps1 -PerCrawl 2
+```
+
+Audit databases and output remain local. Their sampled decisions merge into
+the shared evaluation replay at the next checkpoint.
+
 Then resume with:
 
 ```powershell
@@ -139,8 +150,14 @@ python main.py recover --minutes 0
 Failed sources retry automatically. To reset every failed source immediately:
 
 ```powershell
+python main.py failures
 python main.py retry --all
 ```
+
+The failure report separates transient Common Crawl pressure from worker,
+inference, and output failures. HTTP retries honor `Retry-After`, add jitter,
+and temporarily reduce parser concurrency after transient failures. A
+terminated process pool is rebuilt automatically up to three times.
 
 ## Conflict Rule
 

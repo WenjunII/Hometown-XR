@@ -99,3 +99,21 @@ def test_paragraphs_keep_stable_document_context():
     assert paragraph.context_before == first
     assert paragraph.context_after == last
     assert len(paragraph.document_id) == 64
+
+
+def test_paragraphs_match_normalized_text_and_preserve_changed_source():
+    source = "I remember my childhood home &amp; my family\u00e2\u20ac\u2122s kitchen. " + "x" * 150
+    rows = list(
+        _extract_paras(
+            source,
+            "https://example.test/story",
+            "2026-01-01",
+            "crawl",
+            AllKeywords(),
+            source_file="source.wet.gz",
+        )
+    )
+
+    paragraph = rows[0][0]
+    assert "home & my family\u2019s kitchen" in paragraph.text
+    assert paragraph.raw_text == source

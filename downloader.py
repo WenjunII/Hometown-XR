@@ -21,7 +21,13 @@ from botocore.exceptions import ClientError, NoCredentialsError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from config import CC_BASE_URL, HTTP_BACKOFF_FACTOR, HTTP_RETRIES, HTTP_TIMEOUT
+from config import (
+    CC_BASE_URL,
+    HTTP_BACKOFF_FACTOR,
+    HTTP_BACKOFF_JITTER,
+    HTTP_RETRIES,
+    HTTP_TIMEOUT,
+)
 from crawl_catalog import CrawlInfo
 
 logger = logging.getLogger(__name__)
@@ -33,10 +39,12 @@ def _make_session() -> requests.Session:
     retry = Retry(
         total=HTTP_RETRIES,
         backoff_factor=HTTP_BACKOFF_FACTOR,
+        backoff_jitter=HTTP_BACKOFF_JITTER,
         status_forcelist=[500, 502, 503, 504],
         allowed_methods=["GET", "HEAD"],
+        respect_retry_after_header=True,
     )
-    adapter = HTTPAdapter(max_retries=retry)
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=16, pool_maxsize=16, pool_block=True)
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session

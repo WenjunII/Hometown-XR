@@ -129,6 +129,8 @@ class SourceOutputTransaction:
                 "filter_signature": self.writer.filter_signature,
                 "run_id": self.writer.run_id,
             }
+            if match.raw_text and match.raw_text != match.text:
+                record["raw_paragraph"] = match.raw_text
             by_language.setdefault(lang, []).append(record)
 
         written: dict[str, int] = {}

@@ -8,14 +8,21 @@ import time
 import warnings
 from collections import deque
 from concurrent.futures import Future, ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from multiprocessing.context import BaseContext
 from typing import Any
 
-from config import HEARTBEAT_INTERVAL_SECONDS, MAX_FILE_ATTEMPTS
+from config import (
+    HEARTBEAT_INTERVAL_SECONDS,
+    HTTP_RECOVERY_SUCCESSES,
+    MAX_FILE_ATTEMPTS,
+    PROCESS_POOL_MAX_RESTARTS,
+)
 from crawl_catalog import CrawlInfo
 from downloader import stream_file
 from evaluation import DecisionSampler
+from failure_analysis import is_transient_http_failure
 from metrics import MetricsRecorder
 from output import OutputWriter
 from processor import ProcessingStats, extract_paragraphs_from_arc, extract_paragraphs_from_wet
@@ -25,6 +32,35 @@ from runtime import RuntimeSettings
 
 logger = logging.getLogger(__name__)
 _AUTO_CACHE = object()
+
+
+class _AdaptiveSourceThrottle:
+    """Reduce source concurrency after server pressure and recover gradually."""
+
+    def __init__(self, maximum: int, recovery_successes: int = HTTP_RECOVERY_SUCCESSES):
+        self.maximum = max(1, maximum)
+        self.current = self.maximum
+        self.recovery_successes = max(1, recovery_successes)
+        self.successes = 0
+
+    def available_slots(self, in_flight: int) -> int:
+        return max(0, self.current - in_flight)
+
+    def observe(self, status: str, error: str | None = None) -> tuple[int, int] | None:
+        previous = self.current
+        if status == "failed" and is_transient_http_failure(error):
+            self.current = max(1, self.current // 2)
+            self.successes = 0
+        elif status == "completed":
+            self.successes += 1
+            if self.successes >= self.recovery_successes and self.current < self.maximum:
+                self.current += 1
+                self.successes = 0
+        else:
+            self.successes = 0
+        if self.current != previous:
+            return previous, self.current
+        return None
 
 
 @dataclass(frozen=True)
@@ -357,6 +393,10 @@ class InferenceService:
         self._closed_order.append(source_file)
         self._closed_sources.add(source_file)
 
+    def open_source(self, source_file: str) -> None:
+        """Allow a later retry after stale events from a previous attempt have drained."""
+        self._closed_sources.discard(source_file)
+
     def _transaction(self, source_file: str):
         transaction = self.transactions.get(source_file)
         if transaction is None:
@@ -500,13 +540,22 @@ class ExtractionPipeline:
         self.service = service or InferenceService(settings, metrics)
         self.executor: ProcessPoolExecutor | None = None
 
-    def __enter__(self) -> "ExtractionPipeline":
-        self.executor = ProcessPoolExecutor(
+    def _create_executor(self) -> ProcessPoolExecutor:
+        return ProcessPoolExecutor(
             max_workers=self.settings.workers,
             mp_context=self.context,
             initializer=init_parser_worker,
             initargs=(self.queue, self.shutdown_event),
         )
+
+    def _restart_executor(self) -> None:
+        previous = self.executor
+        if previous is not None:
+            previous.shutdown(wait=False, cancel_futures=True)
+        self.executor = self._create_executor()
+
+    def __enter__(self) -> "ExtractionPipeline":
+        self.executor = self._create_executor()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -584,22 +633,43 @@ class ExtractionPipeline:
         matches_found = 0
         last_heartbeat = time.monotonic()
         fatal_error = None
+        pool_restarts = 0
+        throttle = _AdaptiveSourceThrottle(self.settings.workers)
 
         def submit_available() -> None:
             nonlocal submitted
             if self.shutdown_event.is_set() or submitted >= target:
                 return
-            slots = min(self.settings.workers - len(futures), target - submitted)
+            slots = min(throttle.available_slots(len(futures)), target - submitted)
             for claim in tracker.claim_files(crawl_info.crawl_id, slots, max_attempts):
-                future = self.executor.submit(
-                    parse_source_worker,
-                    claim.file_path,
-                    crawl_info,
-                    self.settings.candidate_batch_size,
-                )
+                self.service.open_source(claim.file_path)
+                try:
+                    future = self.executor.submit(
+                        parse_source_worker,
+                        claim.file_path,
+                        crawl_info,
+                        self.settings.candidate_batch_size,
+                    )
+                except BrokenProcessPool:
+                    tracker.release_claim(claim)
+                    raise
                 futures[future] = claim
                 active[claim.file_path] = claim
                 submitted += 1
+
+        def record_result(claim: ClaimedFile, result: FinalizedSource) -> None:
+            nonlocal files_completed, matches_found
+            completed, matches = self._record_finalized(tracker, claim, result)
+            files_completed += completed
+            matches_found += matches
+            changed = throttle.observe(result.status, result.error)
+            if changed:
+                logger.warning(
+                    "Adjusted parser concurrency from %s to %s after %s",
+                    changed[0],
+                    changed[1],
+                    result.status,
+                )
 
         def finalize(event: SourceFinished) -> None:
             nonlocal files_completed, matches_found
@@ -609,9 +679,31 @@ class ExtractionPipeline:
             result = self.service.finish_source(event)
             active.pop(event.source_file, None)
             fallback_results.pop(event.source_file, None)
-            completed, matches = self._record_finalized(tracker, claim, result)
-            files_completed += completed
-            matches_found += matches
+            record_result(claim, result)
+
+        def recover_broken_pool(exc: BrokenProcessPool) -> None:
+            nonlocal pool_restarts
+            error = f"Worker process pool terminated: {exc}"
+            logger.error("%s", error)
+            for source_file, claim in list(active.items()):
+                failure = self.service.fail_source(source_file, error)
+                active.pop(source_file, None)
+                fallback_results.pop(source_file, None)
+                record_result(claim, failure)
+            futures.clear()
+            fallback_results.clear()
+            if pool_restarts >= PROCESS_POOL_MAX_RESTARTS:
+                raise RuntimeError(
+                    f"process pool failed more than {PROCESS_POOL_MAX_RESTARTS} times"
+                ) from exc
+            pool_restarts += 1
+            self._restart_executor()
+            self.metrics.record_pool_restart()
+            logger.warning(
+                "Restarted parser process pool (%s/%s)",
+                pool_restarts,
+                PROCESS_POOL_MAX_RESTARTS,
+            )
 
         def fail_active_sources(exc: Exception) -> None:
             nonlocal fatal_error
@@ -636,8 +728,11 @@ class ExtractionPipeline:
                 )
                 self._record_finalized(tracker, claim, result)
 
-        submit_available()
-        while futures or active:
+        try:
+            submit_available()
+        except BrokenProcessPool as exc:
+            recover_broken_pool(exc)
+        while futures or active or submitted < target:
             received = False
             try:
                 event = self.queue.get(timeout=0.2)
@@ -668,10 +763,14 @@ class ExtractionPipeline:
                 except Exception as exc:
                     fail_active_sources(exc)
 
+            pool_error = None
             for future in [future for future in futures if future.done()]:
                 claim = futures.pop(future)
                 try:
                     result = future.result()
+                except BrokenProcessPool as exc:
+                    pool_error = exc
+                    break
                 except Exception as exc:
                     if claim.file_path in active:
                         failure = self.service.fail_source(
@@ -679,15 +778,17 @@ class ExtractionPipeline:
                             f"Worker process error: {type(exc).__name__}: {exc}",
                         )
                         active.pop(claim.file_path, None)
-                        completed, matches = self._record_finalized(tracker, claim, failure)
-                        files_completed += completed
-                        matches_found += matches
+                        record_result(claim, failure)
                 else:
                     if claim.file_path in active:
                         if result.status == "completed":
                             fallback_results[claim.file_path] = (result, time.monotonic())
                         else:
                             finalize(result)
+
+            if pool_error is not None:
+                recover_broken_pool(pool_error)
+                continue
 
             now = time.monotonic()
             if not received:
@@ -711,7 +812,10 @@ class ExtractionPipeline:
                         finalize(SourceFinished(source_file, "interrupted"))
                 continue
 
-            submit_available()
+            try:
+                submit_available()
+            except BrokenProcessPool as exc:
+                recover_broken_pool(exc)
             if not futures and not active and submitted < target:
                 break
 

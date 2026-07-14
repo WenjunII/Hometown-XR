@@ -9,7 +9,13 @@ from crawl_catalog import CrawlInfo
 from matcher import MatchDecision
 from metrics import MetricsRecorder
 from output import OutputWriter
-from pipeline import CandidateBatch, ExtractionPipeline, InferenceService, SourceFinished
+from pipeline import (
+    CandidateBatch,
+    ExtractionPipeline,
+    InferenceService,
+    SourceFinished,
+    _AdaptiveSourceThrottle,
+)
 from processor import Paragraph
 from progress import ProgressTracker
 from runtime import RuntimeSettings
@@ -67,6 +73,15 @@ def _write_wet(path):
             warc_headers_dict={"WARC-Date": "2026-01-01T00:00:00Z"},
         )
         writer.write_record(record)
+
+
+def test_source_throttle_reduces_on_503_and_recovers_gradually():
+    throttle = _AdaptiveSourceThrottle(4, recovery_successes=2)
+    assert throttle.available_slots(0) == 4
+    assert throttle.observe("failed", "HTTP 503 service unavailable") == (4, 2)
+    assert throttle.available_slots(1) == 1
+    assert throttle.observe("completed") is None
+    assert throttle.observe("completed") == (2, 3)
 
 
 def test_synthetic_wet_runs_through_spawned_parser_to_atomic_output(tmp_path):

@@ -8,6 +8,7 @@ from evaluation import (
     compact_replay_reservoir,
     decision_uncertainty,
     evaluation_report,
+    evaluation_status,
 )
 from matcher import Match
 from output import OutputWriter
@@ -84,7 +85,7 @@ def test_partitioned_parquet_export_is_staged_and_deduplicated(tmp_path):
     saved = json.loads((target / "_manifest.json").read_text(encoding="utf-8"))
     assert saved["files"][0]["sha256"]
     assert saved["tables"]["provenance"]["rows"] == 2
-    assert saved["dataset_schema_version"] == 3
+    assert saved["dataset_schema_version"] == 4
     assert saved["tables"]["curated"]["rows"] == 1
     curated = ds.dataset(target / "curated", format="parquet", partitioning="hive")
     curated_row = curated.to_table().to_pylist()[0]
@@ -134,6 +135,8 @@ def test_annotation_sample_fills_from_real_output_without_live_rejects(tmp_path)
     )
     assert result["samples"] == 4
     assert result["predicted_positive"] == 4
+    assert not result["balanced_predictions"]
+    assert result["warning"]
     rows = [json.loads(line) for line in annotation_path.read_text(encoding="utf-8").splitlines()]
     assert any(row["sample_id"] == "previously-labeled" for row in rows)
     assert all("uncertainty_score" in row for row in rows)
@@ -171,6 +174,35 @@ def test_evaluation_report_marks_small_threshold_search_as_exploratory(tmp_path)
     assert report["semantic_calibration"]
     assert report["content_taxonomy"]["predicted"]["unknown"] == 2
     assert decision_uncertainty(0.45, 20) == 1.0
+
+
+def test_evaluation_status_and_empty_report_explain_missing_rejects_and_labels(tmp_path):
+    annotation_path = tmp_path / "annotations.jsonl"
+    annotation_path.write_text(
+        json.dumps(
+            {
+                "sample_id": "accepted-only",
+                "sample_origin": "committed_output",
+                "predicted_accept": True,
+                "label": None,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    status = evaluation_status(
+        annotation_path,
+        tmp_path / "candidates.jsonl",
+        tmp_path / "replay.jsonl.gz",
+    )
+    assert status["samples"] == 1
+    assert not status["sample_predictions"]["balanced"]
+    assert any("bounded audit" in action for action in status["next_actions"])
+
+    report = evaluation_report(annotation_path, tmp_path / "report.json")
+    assert report["overall"] is None
+    assert report["baseline"]["warning"]
 
 
 def test_replay_reservoir_is_deterministic_and_cross_machine_ready(tmp_path):

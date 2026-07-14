@@ -12,6 +12,9 @@ import sys
 from dataclasses import replace
 
 from config import (
+    AUDIT_DEFAULT_PER_CRAWL,
+    AUDIT_MAX_PER_CRAWL,
+    AUDIT_SAMPLE_RATE,
     CACHE_DIR,
     DATA_DIR,
     DB_ARCHIVE_PATH,
@@ -293,6 +296,11 @@ def retry_failed(crawl_id: str | None) -> None:
     print(f"Reset {count} failed files for immediate retry in {crawl_id or 'all crawls'}.")
 
 
+def show_failures(crawl_id: str | None, examples: int) -> None:
+    result = ProgressTracker().get_failure_summary(crawl_id, examples)
+    print(json.dumps(result, indent=2))
+
+
 def recover_leases(minutes: int) -> None:
     with CrawlerRunLock("maintenance"):
         count = ProgressTracker().recover_stale_leases(minutes * 60)
@@ -441,6 +449,7 @@ def _evaluation_command(args) -> None:
         build_annotation_sample,
         compact_replay_reservoir,
         evaluation_report,
+        evaluation_status,
     )
 
     if args.evaluation_command == "sample":
@@ -448,14 +457,64 @@ def _evaluation_command(args) -> None:
     elif args.evaluation_command == "annotate":
         print(
             json.dumps(
-                annotate(language=args.language, limit=args.limit),
+                annotate(
+                    language=args.language,
+                    limit=args.limit,
+                    predicted_accept=(
+                        None if args.prediction is None else args.prediction == "accepted"
+                    ),
+                ),
                 indent=2,
             )
         )
     elif args.evaluation_command == "report":
         print(json.dumps(evaluation_report(), indent=2))
+    elif args.evaluation_command == "status":
+        print(json.dumps(evaluation_status(), indent=2))
     elif args.evaluation_command == "replay":
         print(json.dumps(compact_replay_reservoir(), indent=2))
+
+
+def _audit_command(args) -> None:
+    global _shutdown_event
+    from audit import build_audit_plan, run_audit
+    from signatures import build_filter_signature
+
+    if args.audit_command == "run" and not args.yes:
+        raise SystemExit("Refusing to download and run an audit without --yes")
+    if args.audit_command == "run":
+        settings = _runtime_settings(args)
+        signature = settings.filter_signature
+    else:
+        settings = None
+        signature = build_filter_signature(args.threshold, args.language_threshold)
+    plan = build_audit_plan(
+        signature,
+        per_crawl=args.per_crawl,
+        crawl_ids=args.crawl,
+        include_current=args.include_current,
+    )
+    if args.audit_command == "plan":
+        print(json.dumps(plan, indent=2))
+        return
+    context = multiprocessing.get_context("spawn")
+    _shutdown_event = context.Event()
+    try:
+        with CrawlerRunLock("audit"):
+            print(
+                json.dumps(
+                    run_audit(
+                        plan,
+                        settings,
+                        sample_rate=args.sample_rate,
+                        context=context,
+                        shutdown_event=_shutdown_event,
+                    ),
+                    indent=2,
+                )
+            )
+    finally:
+        _shutdown_event = None
 
 
 def main() -> None:
@@ -524,6 +583,12 @@ def main() -> None:
     retry_parser.add_argument("--crawl")
     retry_parser.add_argument("--all", action="store_true")
 
+    failures_parser = subparsers.add_parser(
+        "failures", help="summarize failed sources by operational category"
+    )
+    failures_parser.add_argument("--crawl")
+    failures_parser.add_argument("--examples", type=int, default=3)
+
     recover_parser = subparsers.add_parser(
         "recover", help="release processing leases older than a threshold"
     )
@@ -552,8 +617,46 @@ def main() -> None:
     annotate_parser = evaluation_subparsers.add_parser("annotate")
     annotate_parser.add_argument("--language")
     annotate_parser.add_argument("--limit", type=int)
+    annotate_parser.add_argument("--prediction", choices=["accepted", "rejected"])
     evaluation_subparsers.add_parser("report")
+    evaluation_subparsers.add_parser("status")
     evaluation_subparsers.add_parser("replay")
+
+    audit_parser = subparsers.add_parser(
+        "audit", help="plan or run an isolated audit of completed sources"
+    )
+    audit_subparsers = audit_parser.add_subparsers(dest="audit_command", required=True)
+    audit_plan_parser = audit_subparsers.add_parser("plan")
+    audit_plan_parser.add_argument("--per-crawl", type=int, default=AUDIT_DEFAULT_PER_CRAWL)
+    audit_plan_parser.add_argument("--crawl", action="append")
+    audit_plan_parser.add_argument("--include-current", action="store_true")
+    audit_plan_parser.add_argument("--threshold", type=float, default=SEMANTIC_THRESHOLD)
+    audit_plan_parser.add_argument(
+        "--language-threshold", type=float, default=LANG_DETECTION_THRESHOLD
+    )
+
+    audit_run_parser = audit_subparsers.add_parser("run")
+    audit_run_parser.add_argument("--per-crawl", type=int, default=AUDIT_DEFAULT_PER_CRAWL)
+    audit_run_parser.add_argument("--crawl", action="append")
+    audit_run_parser.add_argument("--include-current", action="store_true")
+    audit_run_parser.add_argument("--threshold", type=float, default=SEMANTIC_THRESHOLD)
+    audit_run_parser.add_argument(
+        "--language-threshold", type=float, default=LANG_DETECTION_THRESHOLD
+    )
+    audit_run_parser.add_argument(
+        "--profile", choices=["auto", *HARDWARE_PROFILES], default="auto"
+    )
+    audit_run_parser.add_argument("--workers", type=int)
+    audit_run_parser.add_argument("--candidate-batch-size", type=int)
+    audit_run_parser.add_argument("--inference-batch-size", type=int)
+    audit_run_parser.add_argument("--encoding-batch-size", type=int)
+    audit_run_parser.add_argument(
+        "--precision", choices=["auto", "fp32", "fp16"], default="auto"
+    )
+    audit_run_parser.add_argument("--no-adaptive-batching", action="store_true")
+    audit_run_parser.add_argument("--no-cache", action="store_true")
+    audit_run_parser.add_argument("--sample-rate", type=float, default=AUDIT_SAMPLE_RATE)
+    audit_run_parser.add_argument("--yes", action="store_true")
 
     filter_parser = subparsers.add_parser(
         "filters", help="inspect or selectively refresh filter-signature state"
@@ -589,6 +692,10 @@ def main() -> None:
         list_crawls()
     elif args.command == "retry":
         retry_failed(None if args.all else (args.crawl or DEFAULT_CRAWL_ID))
+    elif args.command == "failures":
+        if args.examples < 0:
+            parser.error("--examples cannot be negative")
+        show_failures(args.crawl, args.examples)
     elif args.command == "recover":
         if args.minutes < 0:
             parser.error("--minutes cannot be negative")
@@ -655,6 +762,16 @@ def main() -> None:
         if getattr(args, "limit", None) is not None and args.limit <= 0:
             parser.error("--limit must be positive")
         _evaluation_command(args)
+    elif args.command == "audit":
+        if not 1 <= args.per_crawl <= AUDIT_MAX_PER_CRAWL:
+            parser.error(f"--per-crawl must be between 1 and {AUDIT_MAX_PER_CRAWL}")
+        if not 0 <= args.threshold <= 1:
+            parser.error("--threshold must be between 0 and 1")
+        if not 0 <= args.language_threshold <= 1:
+            parser.error("--language-threshold must be between 0 and 1")
+        if args.audit_command == "run" and not 0 <= args.sample_rate <= 1:
+            parser.error("--sample-rate must be between 0 and 1")
+        _audit_command(args)
     elif args.command == "filters":
         if getattr(args, "limit", None) is not None and args.limit <= 0:
             parser.error("--limit must be positive")

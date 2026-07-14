@@ -12,6 +12,7 @@ def test_filter_signature_is_stable_and_changes_with_behavior():
     assert build_filter_signature(0.45) != build_filter_signature(0.46)
     contract = filter_contract()
     assert contract["semantic_model"]["revision"]
+    assert contract["text_normalization"]["version"]
     assert contract["keywords"] == sorted(contract["keywords"])
     assert any(concept_anchor_language(anchor) == "zh" for anchor in contract["concept_anchors"])
 
@@ -38,3 +39,15 @@ def test_filter_cli_rejects_invalid_threshold_before_touching_state():
     )
     assert result.returncode != 0
     assert "--threshold must be between 0 and 1" in result.stderr
+
+
+def test_audit_cli_requires_explicit_confirmation_before_gpu_work():
+    result = subprocess.run(
+        [sys.executable, "main.py", "audit", "run", "--per-crawl", "1"],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode != 0
+    assert "without --yes" in result.stderr

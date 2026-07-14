@@ -76,6 +76,7 @@ def _record_with_identity(record: dict) -> dict:
         "language": str(record.get("language", "unknown") or "unknown"),
         "language_confidence": float(record.get("language_confidence", 0.0) or 0.0),
         "paragraph": paragraph,
+        "raw_paragraph": str(record.get("raw_paragraph", "")),
         "matched_keywords": [str(value) for value in record.get("matched_keywords", [])],
         "semantic_score": float(record.get("semantic_score", 0.0) or 0.0),
         "concept_match": str(record.get("concept_match", "")),
@@ -168,6 +169,7 @@ def _schemas():
             ("language", pa.string()),
             ("language_confidence", pa.float32()),
             ("paragraph", pa.string()),
+            ("raw_paragraph", pa.string()),
             ("document_id", pa.string()),
             ("paragraph_index", pa.int32()),
             ("context_before", pa.string()),
@@ -397,7 +399,7 @@ def export_parquet(
         )
         manifest = {
             "schema_version": OUTPUT_SCHEMA_VERSION,
-            "dataset_schema_version": 3,
+            "dataset_schema_version": 4,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "dedupe_mode": dedupe,
             "near_distance": near_distance if dedupe == "near" else None,
