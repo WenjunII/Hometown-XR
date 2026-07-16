@@ -334,8 +334,13 @@ class SemanticMatcher:
         embeddings = self.encode_paragraphs(paragraphs)
         return self.score_embeddings(embeddings), embeddings
 
-    def consume_runtime_stats(self) -> dict[str, int]:
+    def consume_runtime_stats(self) -> dict[str, int | float]:
         stats = {**self._runtime_stats, "encoding_batch_size": self.encoding_batch_size}
+        if str(self.device).startswith("cuda"):
+            stats["peak_vram_mb"] = round(
+                self._torch.cuda.max_memory_allocated() / 1024**2,
+                1,
+            )
         self._runtime_stats = {"oom_retries": 0, "batch_reductions": 0}
         return stats
 
@@ -831,7 +836,7 @@ class NarrativeFilter:
         # Count repeated first-person usage, capped per form so spam cannot
         # dominate the score.
         for pattern in self._pronoun_patterns:
-            count += min(3, sum(1 for _ in pattern.finditer(text)))
+            count += min(4, sum(1 for _ in pattern.finditer(text)))
 
         # Prefer longer non-Latin markers and do not double-count overlapping
         # forms such as the Chinese equivalents of "I" and "my".
@@ -840,14 +845,20 @@ class NarrativeFilter:
             start = 0
             marker_hits = 0
             while marker_hits < 3:
-                index = text.find(marker, start)
+                index = text_lower.find(marker, start)
                 if index < 0:
                     break
                 end = index + len(marker)
-                if not any(occupied[index:end]):
+                occupied_positions = [
+                    position
+                    for position in range(index, end)
+                    if not text[position].isspace()
+                ]
+                if not any(occupied[position] for position in occupied_positions):
                     count += 1
                     marker_hits += 1
-                    occupied[index:end] = [True] * len(marker)
+                    for position in occupied_positions:
+                        occupied[position] = True
                 start = index + max(1, len(marker))
 
         # Check narrative phrases (strong signal, worth more)

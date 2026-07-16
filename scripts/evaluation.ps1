@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("status", "sample", "annotate", "report", "replay")]
+    [ValidateSet("status", "sample", "annotate", "report", "replay", "undo")]
     [string]$Action = "status",
 
     [ValidateRange(1, 1000000)]
@@ -10,7 +10,18 @@ param(
     [Nullable[int]]$Limit = $null,
 
     [ValidateSet("accepted", "rejected")]
-    [string]$Prediction
+    [string]$Prediction,
+
+    [ValidateSet("all", "tuning", "holdout")]
+    [string]$Split,
+
+    [string]$SampleId,
+
+    [string]$Annotator,
+
+    [switch]$Relabel,
+
+    [switch]$Quick
 )
 
 $ErrorActionPreference = "Stop"
@@ -37,6 +48,24 @@ elseif ($Action -eq "annotate") {
     if (-not [string]::IsNullOrWhiteSpace($Prediction)) {
         $Arguments += @("--prediction", $Prediction)
     }
+    if (-not [string]::IsNullOrWhiteSpace($Split)) {
+        $Arguments += @("--split", $Split)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SampleId)) {
+        $Arguments += @("--sample-id", $SampleId)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Annotator)) {
+        $Arguments += @("--annotator", $Annotator)
+    }
+    if ($Relabel) {
+        $Arguments += "--relabel"
+    }
+    if ($Quick) {
+        $Arguments += "--quick"
+    }
+}
+elseif ($Action -eq "undo" -and -not [string]::IsNullOrWhiteSpace($SampleId)) {
+    $Arguments += @("--sample-id", $SampleId)
 }
 
 $ExitCode = 1

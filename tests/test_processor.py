@@ -58,6 +58,29 @@ def test_record_count_includes_records_without_keyword_candidates(monkeypatch):
     assert stats.records_processed == 2
 
 
+def test_unmatched_paragraphs_can_be_shadow_sampled_with_funnel_counts():
+    stats = ProcessingStats()
+    text = "A long paragraph without configured place-memory keywords. " + "x" * 150
+
+    rows = list(
+        _extract_paras(
+            text,
+            "https://example.test/no-keyword",
+            "2026-01-01",
+            "crawl",
+            NoKeywords(),
+            source_file="source.wet.gz",
+            stats=stats,
+            include_unmatched=True,
+        )
+    )
+
+    assert len(rows) == 1
+    assert rows[0][1] == []
+    assert stats.eligible_paragraphs == 1
+    assert stats.keyword_rejected == 1
+
+
 def test_archive_iterator_errors_are_not_silently_swallowed(monkeypatch):
     def broken_iterator(stream):
         del stream

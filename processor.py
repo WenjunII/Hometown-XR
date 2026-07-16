@@ -33,6 +33,8 @@ class ProcessingStats:
     """Mutable counters updated even when a source yields no candidates."""
 
     records_processed: int = 0
+    eligible_paragraphs: int = 0
+    keyword_rejected: int = 0
     interrupted: bool = False
 
 
@@ -70,6 +72,7 @@ def extract_paragraphs_from_wet(
     shutdown_event=None,
     stats: ProcessingStats | None = None,
     source_file: str = "",
+    include_unmatched: bool = False,
 ) -> Iterator[tuple[Paragraph, list[str], int]]:
     """Yield keyword candidates from a modern WET stream."""
     stats = stats if stats is not None else ProcessingStats()
@@ -100,6 +103,8 @@ def extract_paragraphs_from_wet(
             shutdown_event,
             source_file,
             stats.records_processed,
+            stats,
+            include_unmatched,
         ):
             yield paragraph, keywords, stats.records_processed
 
@@ -114,6 +119,7 @@ def extract_paragraphs_from_arc(
     shutdown_event=None,
     stats: ProcessingStats | None = None,
     source_file: str = "",
+    include_unmatched: bool = False,
 ) -> Iterator[tuple[Paragraph, list[str], int]]:
     """Yield keyword candidates from a legacy ARC stream."""
     stats = stats if stats is not None else ProcessingStats()
@@ -152,6 +158,8 @@ def extract_paragraphs_from_arc(
             shutdown_event,
             source_file,
             stats.records_processed,
+            stats,
+            include_unmatched,
         ):
             yield paragraph, keywords, stats.records_processed
 
@@ -168,6 +176,8 @@ def _extract_paras(
     shutdown_event=None,
     source_file: str = "",
     document_index: int = 0,
+    stats: ProcessingStats | None = None,
+    include_unmatched: bool = False,
 ) -> Iterator[tuple[Paragraph, list[str]]]:
     raw_paragraphs = [" ".join(value.split()) for value in content.split("\n\n")]
     raw_paragraphs = [value for value in raw_paragraphs if value]
@@ -186,12 +196,17 @@ def _extract_paras(
             return
         if not MIN_PARAGRAPH_LENGTH <= len(text) <= MAX_PARAGRAPH_LENGTH:
             continue
+        if stats is not None:
+            stats.eligible_paragraphs += 1
 
         keywords: list[str] = []
         if keyword_matcher:
             keywords = keyword_matcher.find_matches(text)
             if not keywords:
-                continue
+                if stats is not None:
+                    stats.keyword_rejected += 1
+                if not include_unmatched:
+                    continue
 
         yield (
             Paragraph(

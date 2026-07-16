@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import multiprocessing
 import os
 from collections import Counter, defaultdict
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 from config import (
     AUDIT_DEFAULT_PER_CRAWL,
     AUDIT_DIR,
+    AUDIT_EVIDENCE_DIR,
+    AUDIT_MIN_ADOPTION_SOURCES,
     AUDIT_SAMPLE_RATE,
     EVALUATION_DIR,
     METRICS_DIR,
@@ -104,15 +108,35 @@ def _comparison_counter(records: list[dict]) -> Counter:
     )
 
 
+def output_match_set_digest(
+    output_dir: str | Path,
+    source_files: list[str],
+) -> str:
+    """Hash the normalized output multiset for repeatability comparisons."""
+    writer = OutputWriter(output_dir)
+    values = Counter()
+    for source_file in sorted(source_files):
+        values.update(_comparison_counter(_read_source_records(writer, source_file)))
+    payload = json.dumps(
+        sorted(values.items()),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def compare_audit_outputs(
     plan: dict,
     states: dict[str, dict],
     historical_output: str | Path = OUTPUT_DIR,
     audit_output: str | Path | None = None,
+    minimum_adoption_sources: int = AUDIT_MIN_ADOPTION_SOURCES,
 ) -> dict:
     """Compare isolated results with historical shards using normalized identity."""
     if audit_output is None:
         raise ValueError("audit_output is required")
+    if minimum_adoption_sources <= 0:
+        raise ValueError("minimum_adoption_sources must be positive")
     historical_writer = OutputWriter(historical_output)
     audit_writer = OutputWriter(audit_output)
     sources = []
@@ -181,6 +205,33 @@ def compare_audit_outputs(
         and totals["added_matches"] == 0
         and totals["removed_matches"] == 0
     )
+    adoption_by_crawl = {}
+    for crawl_id, values in sorted(per_crawl.items()):
+        selected = int(values["selected_sources"])
+        completed_count = int(values["completed_sources"])
+        equivalent_crawl = (
+            completed_count == selected
+            and int(values["added_matches"]) == 0
+            and int(values["removed_matches"]) == 0
+        )
+        eligible = selected >= minimum_adoption_sources and equivalent_crawl
+        reasons = []
+        if selected < minimum_adoption_sources:
+            reasons.append(
+                f"requires at least {minimum_adoption_sources} audited sources"
+            )
+        if completed_count != selected:
+            reasons.append("not every selected source completed")
+        if int(values["added_matches"]) or int(values["removed_matches"]):
+            reasons.append("the normalized match set changed")
+        adoption_by_crawl[crawl_id] = {
+            "eligible": eligible,
+            "selected_sources": selected,
+            "completed_sources": completed_count,
+            "minimum_sources": minimum_adoption_sources,
+            "reasons": reasons,
+        }
+
     return {
         "summary": {
             **dict(totals),
@@ -190,8 +241,107 @@ def compare_audit_outputs(
         "by_crawl": {
             crawl_id: dict(values) for crawl_id, values in sorted(per_crawl.items())
         },
+        "adoption": {
+            "eligible_crawls": [
+                crawl_id
+                for crawl_id, result in adoption_by_crawl.items()
+                if result["eligible"]
+            ],
+            "minimum_sources_per_crawl": minimum_adoption_sources,
+            "by_crawl": adoption_by_crawl,
+        },
         "sources": sources,
     }
+
+
+def load_adoption_evidence(
+    report_path: str | Path,
+    current_signature: str,
+    requested_crawls: list[str] | None = None,
+) -> dict:
+    """Validate a completed audit report before historical signatures are adopted."""
+    path = Path(report_path)
+    raw = path.read_bytes()
+    report = json.loads(raw.decode("utf-8"))
+    audit_id = str(report.get("audit_id") or "")
+    if not audit_id or audit_id == "unknown":
+        raise ValueError("audit report has no valid audit id")
+    if report.get("filter_signature") != current_signature:
+        raise ValueError("audit report filter signature does not match the current filter")
+    if (report.get("summary") or {}).get("historical_state_changed") is not False:
+        raise ValueError("audit report does not prove that historical state was preserved")
+    adoption = report.get("adoption") or {}
+    eligible = set(adoption.get("eligible_crawls") or [])
+    requested = set(requested_crawls or eligible)
+    if not requested:
+        raise ValueError("audit report has no crawls eligible for signature adoption")
+    blocked = sorted(requested - eligible)
+    if blocked:
+        raise ValueError(
+            "audit evidence is insufficient for: " + ", ".join(blocked)
+        )
+    minimum = int(adoption.get("minimum_sources_per_crawl") or 0)
+    by_crawl = adoption.get("by_crawl") or {}
+    source_rows = report.get("sources") or []
+    for crawl_id in requested:
+        evidence = by_crawl.get(crawl_id) or {}
+        selected = int(evidence.get("selected_sources") or 0)
+        completed = int(evidence.get("completed_sources") or 0)
+        matching_sources = [
+            row for row in source_rows if str(row.get("crawl_id")) == crawl_id
+        ]
+        source_sets_match = all(
+            row.get("audit_status") == "completed"
+            and int(row.get("added_matches") or 0) == 0
+            and int(row.get("removed_matches") or 0) == 0
+            for row in matching_sources
+        )
+        if (
+            minimum <= 0
+            or not evidence.get("eligible")
+            or selected < minimum
+            or completed != selected
+            or len(matching_sources) != selected
+            or not source_sets_match
+        ):
+            raise ValueError(f"audit evidence is internally inconsistent for: {crawl_id}")
+    return {
+        "audit_id": audit_id,
+        "report_path": str(path.resolve()),
+        "report_sha256": hashlib.sha256(raw).hexdigest(),
+        "eligible_crawls": sorted(requested),
+    }
+
+
+def archive_adoption_evidence(
+    report_path: str | Path,
+    evidence: dict,
+    target_dir: str | Path = AUDIT_EVIDENCE_DIR,
+) -> Path:
+    """Copy validated evidence into the Git-tracked cross-PC checkpoint tree."""
+    source = Path(report_path)
+    raw = source.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != evidence.get("report_sha256"):
+        raise ValueError("audit report changed after validation")
+    audit_id = str(evidence.get("audit_id") or "")
+    safe_audit_id = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "_"
+        for character in audit_id
+    ).strip("_")
+    if not safe_audit_id:
+        raise ValueError("audit evidence has no archive-safe audit id")
+    target_dir = Path(target_dir)
+    target = target_dir / f"{safe_audit_id}-{digest[:12]}.json"
+    if target.exists():
+        if target.read_bytes() != raw:
+            raise ValueError(f"archived audit evidence conflicts with {target}")
+        return target
+    target_dir.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_bytes(raw)
+    os.replace(temporary, target)
+    return target
 
 
 def run_audit(
@@ -209,6 +359,15 @@ def run_audit(
         raise ValueError("audit plan contains no sources")
     if plan.get("filter_signature") != settings.filter_signature:
         raise ValueError("audit plan and runtime filter signatures do not match")
+
+    if sample_rate <= 0:
+        settings = replace(
+            settings,
+            shadow_samples_per_source=0,
+            shadow_source_rate=0.0,
+        )
+    elif settings.shadow_samples_per_source > 0:
+        settings = replace(settings, shadow_source_rate=1.0)
 
     root = Path(audit_dir) / settings.run_id
     if root.exists():
@@ -250,6 +409,7 @@ def run_audit(
     sampler = DecisionSampler(
         EVALUATION_DIR / "candidate_samples.jsonl",
         sample_rate=sample_rate,
+        representative=False,
     )
     context = context or multiprocessing.get_context("spawn")
     shutdown_event = shutdown_event or context.Event()

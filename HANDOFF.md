@@ -44,6 +44,17 @@ Use `-Profile 4090` on the other PC. Optionally tune each machine once:
 The setup command's `-Tune` switch runs a shorter benchmark instead. Both forms
 write only the ignored local hardware override for the current PC.
 
+To measure parser concurrency against real data, compare identical completed
+sources without changing the override:
+
+```powershell
+.\scripts\benchmark.ps1 -Profile 3080 -Real -Sources 5 -WorkerCount 1,4,7
+```
+
+Only add `-Apply` when all trials complete and report the same normalized output
+digest. The tracked defaults remain seven workers on both PCs; any applied
+override stays local to the machine that measured it.
+
 ## Send A Checkpoint
 
 1. Press `Ctrl+C` once.
@@ -117,11 +128,38 @@ or resetting historical work:
 
 Audit databases and output remain local. Their sampled decisions merge into
 the shared evaluation replay at the next checkpoint.
+Audit samples are tuning evidence because the selected sources are stratified;
+normal crawl runs supply the probability-sampled benchmark rows used for
+weighted recall estimates.
+A quick two-source audit cannot authorize signature adoption. For that, run at
+least five sources per crawl and provide its report explicitly:
+
+```powershell
+.\scripts\audit.ps1 -Action run -Profile 3080 -PerCrawl 5 -Apply
+.\scripts\filter-state.ps1 -Action stamp-current `
+  -AuditReport .\data\audits\AUDIT_ID\report.json -Apply
+```
+
+The database stores the audit ID and report hash, while the validated report is
+copied into tracked `data/checkpoints/audit-evidence/` for the other PC. A
+mismatched signature, incomplete source, changed normalized match set, or
+ineligible crawl blocks the adoption and leaves historical state unchanged.
 
 Check the shared sample balance and next human-review action with:
 
 ```powershell
 .\scripts\evaluation.ps1
+```
+
+Representative rows keep a stable tuning/holdout split across machines. The
+local crawler also records low-rate pre-keyword shadow samples; checkpointing
+merges them into the shared replay without copying machine-local candidate files.
+
+Review recent shared runs or compare both hardware profiles with:
+
+```powershell
+python main.py metrics --history --limit 20
+python main.py metrics --compare-profiles
 ```
 
 Then resume with:
@@ -153,13 +191,17 @@ is alive:
 python main.py recover --minutes 0
 ```
 
-Failed sources retry automatically. To reset every failed source immediately:
+Failed sources retry automatically. To inspect failures and reset a bounded
+batch immediately:
 
 ```powershell
 python main.py failures
-python main.py retry --all
+.\scripts\retry.ps1 -All -Category http_503 -Limit 25
+.\scripts\retry.ps1 -All -Category http_503 -Limit 25 -Apply
 ```
 
+The first retry command is a dry run. `-Apply` resets only the deterministic,
+bounded category batch; omit `-Category` only after reviewing the full report.
 The failure report separates transient Common Crawl pressure from worker,
 inference, and output failures. HTTP retries honor `Retry-After`, add jitter,
 and temporarily reduce parser concurrency after transient failures. A

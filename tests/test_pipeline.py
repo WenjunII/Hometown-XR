@@ -13,6 +13,7 @@ from pipeline import (
     CandidateBatch,
     ExtractionPipeline,
     InferenceService,
+    ShadowBatch,
     SourceFinished,
     _AdaptiveSourceThrottle,
 )
@@ -52,6 +53,16 @@ class NoopSampler:
     def observe(self, decisions, language_detector):
         del language_detector
         return len(decisions)
+
+    def observe_shadow(
+        self,
+        paragraphs,
+        population_size,
+        language_detector,
+        source_probability=1.0,
+    ):
+        del population_size, language_detector, source_probability
+        return len(paragraphs)
 
 
 def _settings():
@@ -139,6 +150,39 @@ def test_interrupted_source_discards_staged_output(tmp_path):
     assert result.status == "interrupted"
     assert writer.find_source_outputs(source) == []
     assert not writer.manifest_path(source).exists()
+
+
+def test_shadow_batch_passes_source_probability_to_sampler(tmp_path):
+    class CapturingSampler(NoopSampler):
+        def __init__(self):
+            self.call = None
+
+        def observe_shadow(
+            self,
+            paragraphs,
+            population_size,
+            language_detector,
+            source_probability=1.0,
+        ):
+            self.call = (paragraphs, population_size, source_probability)
+            return len(paragraphs)
+
+    sampler = CapturingSampler()
+    metrics = MetricsRecorder("3080", 1, 10, tmp_path / "metrics")
+    service = InferenceService(
+        _settings(),
+        metrics,
+        matcher=FakeMatcher(),
+        language_detector=FakeLanguageDetector(),
+        writer=OutputWriter(tmp_path / "output"),
+        sampler=sampler,
+    )
+    paragraph = Paragraph("https://example.test", "2026-01-01", "sample")
+
+    service.handle_shadow_batch(ShadowBatch("source", [paragraph], 10, 0.2))
+
+    assert sampler.call == ([paragraph], 10, 0.2)
+    service.close()
 
 
 def test_inference_failure_aborts_sources_and_releases_workers(tmp_path):

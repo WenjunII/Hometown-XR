@@ -11,6 +11,10 @@ param(
 
     [switch]$Apply,
 
+    [string]$AuditReport,
+
+    [string[]]$AuditCrawl,
+
     [Nullable[double]]$SemanticThreshold = $null,
 
     [Nullable[double]]$LanguageThreshold = $null
@@ -40,8 +44,13 @@ if ($Action -eq "reset-stale") {
         throw "A bounded stale-source reset requires a positive -Limit."
     }
 }
-elseif ($Action -eq "stamp-current" -and -not $Apply) {
-    throw "Adopting historical signatures requires -Apply after an audit."
+elseif ($Action -eq "stamp-current") {
+    if (-not $Apply) {
+        throw "Adopting historical signatures requires -Apply after an audit."
+    }
+    if ([string]::IsNullOrWhiteSpace($AuditReport)) {
+        throw "Adopting historical signatures requires -AuditReport."
+    }
 }
 
 $Arguments = @((Join-Path $Root "main.py"), "filters")
@@ -66,7 +75,10 @@ if ($Action -eq "reset-stale") {
     }
 }
 elseif ($Action -eq "stamp-current") {
-    $Arguments += "--yes"
+    $Arguments += @("--audit-report", $AuditReport, "--yes")
+    foreach ($CrawlId in $AuditCrawl) {
+        $Arguments += @("--crawl", $CrawlId)
+    }
 }
 
 $ExitCode = 1

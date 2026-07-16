@@ -68,7 +68,9 @@ One run has seven lightweight CPU parser processes and one inference owner:
 WET/ARC sources
     -> bounded CPU download/parse workers
     -> versioned entity/encoding normalization
+    -> eligible-paragraph funnel counters
     -> multilingual keyword prefilter
+       -> deterministic pre-keyword shadow sample
     -> bounded candidate queue
     -> hard-boilerplate prefilter
     -> versioned score/embedding cache
@@ -148,7 +150,8 @@ These are the conservative settings tracked in Git:
 `inference_batch_size` combines candidates from multiple sources before one
 semantic call. `encoding_batch_size` is the sentence-transformer CUDA batch.
 
-Benchmark this PC and write an ignored, machine-local override:
+Audit FP16 behavior on a fixed synthetic workload and write an ignored,
+machine-local override:
 
 ```powershell
 .\scripts\benchmark.ps1 -Profile 3080
@@ -160,6 +163,19 @@ FP16 only when drift stays within the safety bound and throughput improves by
 at least five percent. Results are written to
 `data/hardware-profile.local.json`; that file is intentionally not synchronized
 because the 3080 and 4090 should keep their own measured settings.
+
+Worker-count tuning uses the same completed Common Crawl sources for every
+trial, with cache and evaluation sampling disabled and all output isolated:
+
+```powershell
+.\scripts\benchmark.ps1 -Profile 3080 -Real -Crawl CC-MAIN-2014-15 `
+  -Sources 5 -WorkerCount 1,4,7
+```
+
+The command reports files/hour, MB/s, peak worker RAM, peak VRAM, failures,
+pool restarts, and a normalized output digest. It changes no setting by default.
+Add `-Apply` only after every source completes and every trial produces the
+same normalized match set; then only this PC's ignored worker override changes.
 
 One-run overrides are also available:
 
@@ -186,18 +202,30 @@ Each paragraph passes through:
 CJK, Japanese, Korean, and Thai keywords use substring matching where word
 boundaries are unreliable. FastText predictions below the confidence threshold
 are stored under `unknown/` with the original confidence.
+The narrative ruleset is regression-tested for every language represented in
+the keyword catalog. Adjacent Cyrillic markers no longer hide one another, and
+the per-form cap permits Vietnamese narratives to reach the configured threshold
+without removing the anti-repetition bound.
 
 Every live candidate can contribute to a deterministic local evaluation sample.
-Boundary cases are sampled more aggressively, while coverage sampling and
-language stratification prevent the queue from collapsing around one score or
-language. At checkpoint time, local candidates merge into the bounded,
-deterministic `data/evaluation/replay.jsonl.gz` reservoir shared by both PCs.
-Human labels are never synthesized.
+Low-rate coverage samples are marked `benchmark` and retain their inclusion
+probabilities; decision-boundary samples are marked `tuning`. A deterministic
+subset of source files also contributes a small reservoir of paragraphs rejected
+before the keyword gate. Those shadow rows make missed-keyword recall visible
+without sending the full corpus through the GPU. At checkpoint time, local
+candidates merge into the bounded `data/evaluation/replay.jsonl.gz` reservoir
+shared by both PCs. Replay compaction preserves representative rows and reserves
+space for active-learning rows. Human labels are never synthesized.
 
 Every run records a filter signature over text normalization, the model
 revision, thresholds, paragraph bounds, narrative rules, keywords, and concept
 anchors. New output, manifests, progress rows, and run history carry the
 signature and run ID.
+
+Run metrics now include the full paragraph funnel, accepted-versus-committed
+counts, categorized failures, worker peak RAM, GPU peak VRAM, pool restarts,
+throughput, and ETA. `python main.py metrics` prints a concise operational view;
+use `--full`, `--history`, or `--compare-profiles` for deeper inspection.
 
 ## Commands
 
@@ -210,12 +238,14 @@ resolve the project root regardless of the caller's current directory:
 | `.\scripts\setup.ps1 -Profile 3080 -Tune -Dev` | Also tune this PC and install development tools |
 | `.\scripts\run.ps1 -Profile 3080 run --all` | Start or resume using the selected hardware profile |
 | `.\scripts\benchmark.ps1 -Profile 3080` | Audit FP16 safety and write this PC's local override |
+| `.\scripts\benchmark.ps1 -Profile 3080 -Real -Sources 5 -WorkerCount 1,4,7` | Compare worker counts on identical isolated real sources |
 | `.\scripts\handoff.ps1 -Direction pull -Profile 3080` | Fast-forward, pull LFS data, and verify the received checkpoint |
 | `.\scripts\filter-state.ps1` | Inspect current, stale, and unsigned completed work |
 | `.\scripts\audit.ps1` | Plan a deterministic, isolated historical-source audit |
 | `.\scripts\audit.ps1 -Action run -Profile 3080 -Apply` | Run the reviewed audit without changing historical state |
 | `.\scripts\evaluation.ps1` | Show annotation balance and the next evaluation action |
 | `.\scripts\evaluation.ps1 -Action annotate -Prediction rejected -Limit 25` | Review a focused batch interactively |
+| `.\scripts\retry.ps1 -All -Category http_503 -Limit 25 -Apply` | Reset one bounded failure batch after a dry-run report |
 | `.\scripts\refresh-results.ps1` | Dry-run current filters and rebuild the local canonical dataset |
 | `.\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"` | Verify, compact, commit, push, and confirm a checkpoint |
 | `.\scripts\test.ps1` | Run tests, lint, and compilation checks |
@@ -229,17 +259,21 @@ The underlying Python CLI remains available directly:
 | `python main.py run --all --strategy round-robin --chunk-size 100` | Rotate bounded chunks across old and new crawls |
 | `python main.py run --limit 5` | Process at most five ready sources globally |
 | `python main.py status` | Show checkpoint progress |
-| `python main.py metrics` | Show latest rates, GPU time, and ETA |
+| `python main.py metrics` | Show concise latest rates, funnel, failures, resources, and ETA |
+| `python main.py metrics --history --limit 20` | Show compact recent run history |
+| `python main.py metrics --compare-profiles` | Compare aggregate 3080 and 4090 throughput/resources |
 | `python main.py doctor --profile 3080` | Check Python, PyTorch, CUDA, and profile |
 | `python main.py benchmark --profile 3080` | Benchmark and tune this PC |
+| `python main.py benchmark --profile 3080 --real --sources 5 --worker-count 1 --worker-count 7` | Benchmark identical real sources without changing settings |
 | `python main.py cache stats` | Inspect the local inference cache |
 | `python main.py cache clear` | Rebuild the local inference cache from empty |
-| `python main.py retry --all` | Retry all failed sources immediately |
+| `python main.py retry --all --category http_503 --limit 25` | Retry a deterministic bounded failure category |
 | `python main.py failures` | Group failures into HTTP, connection, worker, inference, and output categories |
 | `python main.py recover --minutes 10` | Release expired source leases |
 | `python main.py verify-output` | Verify committed shard checksums |
 | `python main.py checkpoint` | Verify and compact state for handoff |
 | `python main.py filters status` | Compare completed work with the current filter signature |
+| `python main.py filters stamp-current --audit-report PATH --yes` | Adopt only crawls proven equivalent by that audit report |
 | `python main.py filters reset-stale --crawl ID --limit 100 --yes` | Queue a bounded stale-source recrawl |
 | `python main.py database restore` | Restore the local SQLite DB from the shared archive |
 | `python main.py database check` | Confirm local SQLite state matches the shared archive |
@@ -249,6 +283,8 @@ The underlying Python CLI remains available directly:
 | `python main.py evaluation status` | Show sample balance, labels, readiness, and the next action |
 | `python main.py evaluation sample` | Build a real-text annotation sample |
 | `python main.py evaluation annotate` | Label samples interactively |
+| `python main.py evaluation annotate --split holdout --quick` | Label a balanced holdout queue with model categories accepted |
+| `python main.py evaluation undo --sample-id ID` | Restore the previous label and annotation metadata |
 | `python main.py evaluation report` | Compute precision, recall, F1, and tuning |
 | `python main.py evaluation replay` | Compact local decisions into the shared replay reservoir |
 | `python main.py reset` | Delete output, derivatives, and progress |
@@ -382,6 +418,9 @@ semantic threshold `0.45` and narrative threshold `8`. Near deduplication
 produces `1,356` canonical stories; `1,183` are within the default domain cap
 and `1,098` are in the default curated view. The retained full table classifies
 `29` poetry, `22` lyrics, `22` genealogy, and `12` adult-content stories.
+Those results remain preserved. The newer narrative ruleset creates a new filter
+signature, so historical rows are reported as stale or unknown until audited;
+they are not silently relabeled and are not automatically queued for recrawl.
 
 Reprocess completed Common Crawl sources only after a recall-affecting change,
 such as broader keywords or concept anchors, a lower threshold, a new model
@@ -403,6 +442,12 @@ zero-match source. The audit writes its temporary database and output under
 ignored `data/audits/`, leaves `data/progress.db` and `data/output/` untouched,
 records local performance metrics, and contributes sampled reject decisions to
 the normal evaluation reservoir. The maximum is ten sources per crawl.
+A two-source audit is useful for a quick regression check. Signature adoption
+requires at least five completed, equivalent sources in each crawl being
+adopted.
+Because audit sources are deliberately stratified, their decision and shadow
+samples are tuning evidence, not population-weighted benchmark rows. Normal
+crawls provide the low-rate representative samples used for end-to-end metrics.
 
 The audit launcher accepts the same deliberate runtime overrides as a crawl:
 `-Workers`, `-CandidateBatchSize`, `-InferenceBatchSize`,
@@ -421,10 +466,23 @@ Use filter signatures to make that audit selective:
 Historical rows created before signatures are reported as `unknown`. Add
 `-IncludeUnknown` only for a deliberate bounded recrawl. The PowerShell helper
 requires `-Crawl`, a positive `-Limit`, and `-Apply` before changing checkpoint
-state. After an audit proves legacy work equivalent,
-`.\scripts\filter-state.ps1 -Action stamp-current -Apply` can adopt those rows
-without downloading them again. The underlying Python commands remain
-available for automation.
+state. It never stamps every unknown row from a bare confirmation flag.
+
+To adopt compatible historical work, run at least five sources per crawl, then
+pass the resulting immutable report as evidence:
+
+```powershell
+.\scripts\audit.ps1 -Action run -Profile 3080 -PerCrawl 5 -Apply
+.\scripts\filter-state.ps1 -Action stamp-current `
+  -AuditReport .\data\audits\AUDIT_ID\report.json -Apply
+```
+
+The report must match the current filter signature, prove unchanged normalized
+match sets, show every selected source completed, and list the crawl as eligible.
+The database records the audit ID and report SHA-256 for each adoption, and the
+validated report is copied to `data/checkpoints/audit-evidence/` for the next Git
+handoff. Existing output and checkpoint rows remain untouched when evidence is
+missing or inconsistent.
 
 ## Evaluation
 
@@ -435,22 +493,30 @@ Build an unlabeled sample from real committed records and sampled live rejects:
 .\scripts\evaluation.ps1 -Action sample -Size 400
 .\scripts\evaluation.ps1 -Action annotate -Prediction rejected -Limit 25
 .\scripts\evaluation.ps1 -Action annotate -Prediction accepted -Limit 75
+.\scripts\evaluation.ps1 -Action annotate -Split holdout -Limit 25 -Quick
 .\scripts\evaluation.ps1 -Action report
 ```
 
 `.\scripts\evaluation.ps1` is always safe and explains whether more audit
 samples or human labels are needed. Reports return a structured not-ready
-result instead of a traceback when no labels exist. Sampling is deterministic,
-language-stratified, and prioritizes uncertain examples near semantic or
-narrative thresholds. Existing labels are kept when
-a sample is rebuilt. `-Action annotate -Language en -Limit 25` and
-`-Prediction accepted|rejected` support focused work.
-Reports use only human-labeled rows and include confidence intervals,
-calibration bins, label-balance readiness, per-language support warnings,
-content-category agreement, false-positive/false-negative IDs, and a
-semantic/narrative threshold grid search. Recommendations stay marked
-exploratory until at least 100 labels and
-both classes are present.
+result instead of a traceback when no labels exist. Sampling is deterministic
+and language-stratified. Representative benchmark rows receive a stable 80/20
+tuning/holdout split; uncertain rows are used only for tuning. Existing labels,
+notes, annotator, timestamp, and label history are kept when a sample is rebuilt.
+Annotation queues rotate across prediction and language strata. `-Language`,
+`-Prediction`, `-Split`, `-SampleId`, `-Relabel`, and `-Quick` support focused
+work, while `-Action undo` restores the previous label.
+
+Reports use only human labels and explicitly identify their metric scope:
+descriptive active sample, weighted downstream filter, or weighted end-to-end
+funnel. They include unweighted and sampling-weighted metrics, calibration bins,
+per-language support warnings, content-category agreement, false-positive and
+false-negative IDs, and a semantic/narrative threshold search performed without
+holdout rows. Recommendations remain exploratory until at least 100 labels,
+both classes, and at least 20 representative holdout labels with both classes
+are present. Pre-keyword shadow labels are required before recall is described
+as end-to-end, and those weighted recall rows must come from normal-crawl
+probability sampling rather than a deliberately selected audit.
 
 The original synthetic regression corpus remains available:
 
@@ -478,7 +544,9 @@ the complete corpus into memory.
 The suite covers leases, retries, interruption, source transactions, stable
 IDs, checksum rollback, compact manifest catalogs, inference caching,
 multilingual filtering, real WET parsing, spawned Windows-compatible
-orchestration, canonical/provenance deduplication, and Parquet export. GitHub
+orchestration, representative sampling weights, tuning/holdout isolation,
+audit-gated signature adoption, real-workload recommendations,
+canonical/provenance deduplication, and Parquet export. GitHub
 Actions runs lint, tests, compilation, CLI smoke checks, and PowerShell parsing
 on both Windows and Ubuntu without
 downloading GPU models or Git LFS data.
@@ -487,20 +555,20 @@ downloading GPU models or Git LFS data.
 
 ```text
 main.py                 CLI and run orchestration
-audit.py                isolated historical-source planning and comparison
+audit.py                isolated comparison and signature-adoption evidence
 pipeline.py             bounded CPU queue and shared GPU inference owner
 progress.py             SQLite leases, retries, and checkpoint migration
 output.py               source transactions, stable IDs, and manifests
 inference_cache.py      versioned embedding, score, and language cache
 checkpoint.py           integrity verification and handoff compaction
 database_checkpoint.py  compressed SQLite archive, restore, and sync checks
-processor.py            WET/ARC parsing and counters
+processor.py            WET/ARC parsing, funnel counters, and shadow candidates
 text_normalization.py   versioned entity, encoding, and Unicode repair
 matcher.py              keyword, semantic, and narrative filters
-evaluation.py           real-text sampling, annotation, and reports
-metrics.py              run rates, GPU timing, and ETA
+evaluation.py           weighted sampling, annotation history, tuning, and holdout
+metrics.py              funnel, failures, resources, rates, history, and ETA
 failure_analysis.py     stable operational failure categories
-benchmark.py            local hardware benchmark and autotuning
+benchmark.py            synthetic precision and isolated real-source benchmarks
 dedupe.py               disk-backed exact and SimHash duplicate index
 parquet_export.py       staged partitioned analytical export
 quality.py              boilerplate, template, domain, and diversity signals

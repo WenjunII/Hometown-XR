@@ -33,8 +33,13 @@ jobs:
         run: |
           python main.py --help
           python main.py filters --help
+          python main.py filters stamp-current --help
           python main.py audit --help
           python main.py evaluation --help
+          python main.py evaluation annotate --help
+          python main.py benchmark --help
+          python main.py metrics --help
+          python main.py retry --help
           python main.py failures --help
       - name: Parse PowerShell scripts
         if: runner.os == 'Windows'

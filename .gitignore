@@ -42,6 +42,7 @@ data/audits/
 data/output/_manifests/*.json
 data/output/_manifest-catalog.jsonl.gz.tmp
 data/checkpoints/*.tmp
+data/checkpoints/audit-evidence/*.tmp
 
 # IDE
 .vscode/

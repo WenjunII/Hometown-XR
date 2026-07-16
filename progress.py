@@ -88,6 +88,16 @@ class ProgressTracker:
                     ON processing_state(status);
                 CREATE INDEX IF NOT EXISTS idx_crawl_status
                     ON processing_state(crawl_id, status);
+
+                CREATE TABLE IF NOT EXISTS signature_adoptions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    adopted_at TEXT NOT NULL,
+                    filter_signature TEXT NOT NULL,
+                    crawl_id TEXT NOT NULL,
+                    audit_id TEXT NOT NULL,
+                    audit_report_sha256 TEXT NOT NULL,
+                    rows_stamped INTEGER NOT NULL
+                );
                 """
             )
 
@@ -431,20 +441,69 @@ class ProgressTracker:
             result.extend(item[2] for item in chosen)
         return result
 
-    def stamp_unknown_completed(self, current_signature: str) -> int:
-        """Adopt audited legacy completions without forcing an expensive recrawl."""
+    def stamp_unknown_completed(
+        self,
+        current_signature: str,
+        crawl_ids: Iterable[str],
+        audit_id: str = "",
+        audit_report_sha256: str = "",
+    ) -> int:
+        """Adopt only crawls covered by explicit, externally validated audit evidence."""
+        selected = sorted(set(crawl_ids))
+        if not selected:
+            raise ValueError("at least one audited crawl is required")
+        if not audit_id or not audit_report_sha256:
+            raise ValueError("audit id and report hash are required")
+        adopted_at = _utc_now().isoformat()
+        total = 0
         with self._get_conn() as conn:
-            cursor = conn.execute(
+            for crawl_id in selected:
+                cursor = conn.execute(
+                    """
+                    UPDATE processing_state
+                    SET filter_signature = ?,
+                        run_id = COALESCE(run_id, ?)
+                    WHERE status = 'completed'
+                      AND crawl_id = ?
+                      AND COALESCE(filter_signature, '') = ''
+                    """,
+                    (current_signature, f"historical-audit:{audit_id}", crawl_id),
+                )
+                count = cursor.rowcount
+                total += count
+                conn.execute(
+                    """
+                    INSERT INTO signature_adoptions (
+                        adopted_at, filter_signature, crawl_id, audit_id,
+                        audit_report_sha256, rows_stamped
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        adopted_at,
+                        current_signature,
+                        crawl_id,
+                        audit_id,
+                        audit_report_sha256,
+                        count,
+                    ),
+                )
+        return total
+
+    def get_signature_adoptions(self, limit: int = 20) -> list[dict]:
+        if limit <= 0:
+            return []
+        with self._get_conn() as conn:
+            rows = conn.execute(
                 """
-                UPDATE processing_state
-                SET filter_signature = ?,
-                    run_id = COALESCE(run_id, 'historical-audit')
-                WHERE status = 'completed'
-                  AND COALESCE(filter_signature, '') = ''
+                SELECT adopted_at, filter_signature, crawl_id, audit_id,
+                       audit_report_sha256, rows_stamped
+                FROM signature_adoptions
+                ORDER BY id DESC
+                LIMIT ?
                 """,
-                (current_signature,),
-            )
-            return cursor.rowcount
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     def reset_stale_completed(
         self,
@@ -551,16 +610,38 @@ class ProgressTracker:
         finally:
             conn.close()
 
-    def retry_failed(self, crawl_id: str | None = None) -> int:
+    def retry_failed(
+        self,
+        crawl_id: str | None = None,
+        limit: int | None = None,
+        category: str | None = None,
+    ) -> int:
         """Reset failed files so an operator-requested retry starts immediately."""
-        where = "status = 'failed'"
-        params: tuple[object, ...] = ()
+        if limit is not None and limit <= 0:
+            return 0
+        where = ["status = 'failed'"]
+        params: list[object] = []
         if crawl_id is not None:
-            where += " AND crawl_id = ?"
-            params = (crawl_id,)
+            where.append("crawl_id = ?")
+            params.append(crawl_id)
         with self._get_conn() as conn:
-            cursor = conn.execute(
-                f"""
+            rows = conn.execute(
+                "SELECT file_path, error_message FROM processing_state WHERE "
+                + " AND ".join(where)
+                + " ORDER BY completed_at, file_path",
+                params,
+            )
+            paths = []
+            for row in rows:
+                if category and classify_failure(row["error_message"]) != category:
+                    continue
+                paths.append(str(row["file_path"]))
+                if limit is not None and len(paths) >= limit:
+                    break
+            if not paths:
+                return 0
+            conn.executemany(
+                """
                 UPDATE processing_state
                 SET status = 'pending',
                     attempt_count = 0,
@@ -568,11 +649,11 @@ class ProgressTracker:
                     started_at = NULL,
                     heartbeat_at = NULL,
                     lease_id = NULL
-                WHERE {where}
+                WHERE file_path = ? AND status = 'failed'
                 """,
-                params,
+                [(path,) for path in paths],
             )
-            return cursor.rowcount
+            return len(paths)
 
     def get_failure_summary(
         self,

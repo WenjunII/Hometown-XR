@@ -37,7 +37,7 @@ from crawl_catalog import (
     get_modern_crawls,
 )
 from downloader import fetch_file_paths
-from metrics import MetricsRecorder, print_latest
+from metrics import MetricsRecorder, compare_profiles, print_latest, summarize_run_history
 from output import OutputWriter
 from pipeline import ExtractionPipeline
 from progress import ProgressTracker
@@ -290,10 +290,16 @@ def list_crawls() -> None:
     print(f"\n  Total: {len(LEGACY_CRAWLS) + len(modern_crawls)} crawls\n")
 
 
-def retry_failed(crawl_id: str | None) -> None:
+def retry_failed(
+    crawl_id: str | None,
+    limit: int | None = None,
+    category: str | None = None,
+) -> None:
     with CrawlerRunLock("maintenance"):
-        count = ProgressTracker().retry_failed(crawl_id)
-    print(f"Reset {count} failed files for immediate retry in {crawl_id or 'all crawls'}.")
+        count = ProgressTracker().retry_failed(crawl_id, limit=limit, category=category)
+    scope = crawl_id or "all crawls"
+    qualifier = f" in category {category}" if category else ""
+    print(f"Reset {count} failed files for immediate retry in {scope}{qualifier}.")
 
 
 def show_failures(crawl_id: str | None, examples: int) -> None:
@@ -412,6 +418,7 @@ def _filter_command(args) -> None:
     tracker = ProgressTracker()
     if args.filter_command == "status":
         result = tracker.get_filter_signature_summary(signature)
+        result["recent_adoptions"] = tracker.get_signature_adoptions()
         contract = filter_contract(args.threshold, args.language_threshold)
         result["contract"] = {
             "schema_version": contract["schema_version"],
@@ -426,9 +433,25 @@ def _filter_command(args) -> None:
     elif not args.yes:
         raise SystemExit("Refusing to change checkpoint state without --yes")
     elif args.filter_command == "stamp-current":
+        from audit import archive_adoption_evidence, load_adoption_evidence
+
+        evidence = load_adoption_evidence(
+            args.audit_report,
+            signature,
+            requested_crawls=args.crawl,
+        )
+        evidence["archived_report"] = str(
+            archive_adoption_evidence(args.audit_report, evidence)
+        )
         result = {
             "current_signature": signature,
-            "stamped": tracker.stamp_unknown_completed(signature),
+            "stamped": tracker.stamp_unknown_completed(
+                signature,
+                evidence["eligible_crawls"],
+                audit_id=evidence["audit_id"],
+                audit_report_sha256=evidence["report_sha256"],
+            ),
+            "evidence": evidence,
         }
     else:
         result = {
@@ -450,6 +473,7 @@ def _evaluation_command(args) -> None:
         compact_replay_reservoir,
         evaluation_report,
         evaluation_status,
+        undo_annotation,
     )
 
     if args.evaluation_command == "sample":
@@ -463,6 +487,11 @@ def _evaluation_command(args) -> None:
                     predicted_accept=(
                         None if args.prediction is None else args.prediction == "accepted"
                     ),
+                    split=args.split,
+                    sample_id=args.sample_id,
+                    relabel=args.relabel,
+                    annotator=args.annotator,
+                    quick=args.quick,
                 ),
                 indent=2,
             )
@@ -473,6 +502,8 @@ def _evaluation_command(args) -> None:
         print(json.dumps(evaluation_status(), indent=2))
     elif args.evaluation_command == "replay":
         print(json.dumps(compact_replay_reservoir(), indent=2))
+    elif args.evaluation_command == "undo":
+        print(json.dumps(undo_annotation(sample_id=args.sample_id), indent=2))
 
 
 def _audit_command(args) -> None:
@@ -550,7 +581,15 @@ def main() -> None:
     run_parser.add_argument("--no-cache", action="store_true")
 
     subparsers.add_parser("status", help="show processing progress")
-    subparsers.add_parser("metrics", help="show the latest operational metrics")
+    metrics_parser = subparsers.add_parser(
+        "metrics", help="show current or historical operational metrics"
+    )
+    metrics_mode = metrics_parser.add_mutually_exclusive_group()
+    metrics_mode.add_argument("--history", action="store_true")
+    metrics_mode.add_argument("--compare-profiles", action="store_true")
+    metrics_parser.add_argument("--profile", choices=sorted(HARDWARE_PROFILES))
+    metrics_parser.add_argument("--limit", type=int, default=20)
+    metrics_parser.add_argument("--full", action="store_true")
     subparsers.add_parser("list", help="list available crawls")
     subparsers.add_parser("reset", help="wipe output and progress")
     subparsers.add_parser("verify-output", help="verify source shard checksums")
@@ -580,8 +619,27 @@ def main() -> None:
     cache_subparsers.add_parser("clear")
 
     retry_parser = subparsers.add_parser("retry", help="retry failed files now")
-    retry_parser.add_argument("--crawl")
-    retry_parser.add_argument("--all", action="store_true")
+    retry_scope = retry_parser.add_mutually_exclusive_group()
+    retry_scope.add_argument("--crawl")
+    retry_scope.add_argument("--all", action="store_true")
+    retry_parser.add_argument("--limit", type=int)
+    retry_parser.add_argument(
+        "--category",
+        choices=[
+            "connection",
+            "http_404",
+            "http_429",
+            "http_500",
+            "http_502",
+            "http_503",
+            "http_504",
+            "inference",
+            "other",
+            "output",
+            "process_pool",
+            "timeout",
+        ],
+    )
 
     failures_parser = subparsers.add_parser(
         "failures", help="summarize failed sources by operational category"
@@ -601,6 +659,11 @@ def main() -> None:
     benchmark_parser.add_argument("--profile", choices=["auto", *HARDWARE_PROFILES], default="auto")
     benchmark_parser.add_argument("--quick", action="store_true")
     benchmark_parser.add_argument("--no-write", action="store_true")
+    benchmark_parser.add_argument("--real", action="store_true")
+    benchmark_parser.add_argument("--crawl", default=DEFAULT_CRAWL_ID)
+    benchmark_parser.add_argument("--sources", type=int, default=5)
+    benchmark_parser.add_argument("--worker-count", type=int, action="append")
+    benchmark_parser.add_argument("--apply", action="store_true")
 
     parquet_parser = subparsers.add_parser("parquet", help="export partitioned Parquet")
     parquet_parser.add_argument("--dedupe", choices=["none", "exact", "near"], default="exact")
@@ -618,9 +681,16 @@ def main() -> None:
     annotate_parser.add_argument("--language")
     annotate_parser.add_argument("--limit", type=int)
     annotate_parser.add_argument("--prediction", choices=["accepted", "rejected"])
+    annotate_parser.add_argument("--split", choices=["all", "tuning", "holdout"])
+    annotate_parser.add_argument("--sample-id")
+    annotate_parser.add_argument("--relabel", action="store_true")
+    annotate_parser.add_argument("--annotator")
+    annotate_parser.add_argument("--quick", action="store_true")
     evaluation_subparsers.add_parser("report")
     evaluation_subparsers.add_parser("status")
     evaluation_subparsers.add_parser("replay")
+    undo_parser = evaluation_subparsers.add_parser("undo")
+    undo_parser.add_argument("--sample-id")
 
     audit_parser = subparsers.add_parser(
         "audit", help="plan or run an isolated audit of completed sources"
@@ -668,6 +738,8 @@ def main() -> None:
     filter_subparsers = filter_parser.add_subparsers(dest="filter_command", required=True)
     filter_subparsers.add_parser("status")
     stamp_parser = filter_subparsers.add_parser("stamp-current")
+    stamp_parser.add_argument("--audit-report", required=True)
+    stamp_parser.add_argument("--crawl", action="append")
     stamp_parser.add_argument("--yes", action="store_true")
     reset_filter_parser = filter_subparsers.add_parser("reset-stale")
     reset_filter_parser.add_argument("--include-unknown", action="store_true")
@@ -687,11 +759,29 @@ def main() -> None:
     elif args.command == "status":
         show_status()
     elif args.command == "metrics":
-        print_latest()
+        if args.limit <= 0:
+            parser.error("--limit must be positive")
+        if args.compare_profiles:
+            print(json.dumps(compare_profiles(), indent=2))
+        elif args.history:
+            print(
+                json.dumps(
+                    summarize_run_history(args.limit, profile=args.profile),
+                    indent=2,
+                )
+            )
+        else:
+            print_latest(full=args.full)
     elif args.command == "list":
         list_crawls()
     elif args.command == "retry":
-        retry_failed(None if args.all else (args.crawl or DEFAULT_CRAWL_ID))
+        if args.limit is not None and args.limit <= 0:
+            parser.error("--limit must be positive")
+        retry_failed(
+            None if args.all else (args.crawl or DEFAULT_CRAWL_ID),
+            limit=args.limit,
+            category=args.category,
+        )
     elif args.command == "failures":
         if args.examples < 0:
             parser.error("--examples cannot be negative")
@@ -730,14 +820,34 @@ def main() -> None:
                     cache.clear()
                 print(json.dumps(cache.stats(), indent=2))
     elif args.command == "benchmark":
-        from benchmark import run_benchmark
+        from benchmark import run_benchmark, run_workload_benchmark
 
         with CrawlerRunLock("benchmark"):
-            print(
-                json.dumps(
-                    run_benchmark(args.profile, quick=args.quick, write=not args.no_write),
-                    indent=2,
+            if args.sources <= 0 or args.sources > AUDIT_MAX_PER_CRAWL:
+                parser.error(
+                    f"--sources must be between 1 and {AUDIT_MAX_PER_CRAWL}"
                 )
+            if args.worker_count and min(args.worker_count) <= 0:
+                parser.error("--worker-count must be positive")
+            if args.apply and not args.real:
+                parser.error("--apply is only valid with --real")
+            result = (
+                run_workload_benchmark(
+                    args.profile,
+                    args.crawl,
+                    source_count=args.sources,
+                    worker_counts=args.worker_count,
+                    write=args.apply,
+                )
+                if args.real
+                else run_benchmark(
+                    args.profile,
+                    quick=args.quick,
+                    write=not args.no_write,
+                )
+            )
+            print(
+                json.dumps(result, indent=2)
             )
     elif args.command == "parquet":
         from parquet_export import export_parquet

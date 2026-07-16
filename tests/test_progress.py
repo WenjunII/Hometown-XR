@@ -111,6 +111,29 @@ def test_failure_summary_groups_transient_and_worker_errors(tmp_path):
     assert result["categories"]["process_pool"]["count"] == 1
 
 
+def test_retry_failed_can_be_bounded_by_failure_category(tmp_path):
+    tracker = ProgressTracker(tmp_path / "progress.db")
+    tracker.initialize_paths(["a", "b", "worker"], "crawl")
+    claims = tracker.claim_files("crawl", 3)
+    for claim in claims[:2]:
+        tracker.mark_failed(
+            claim.file_path,
+            "HTTP 503 service unavailable",
+            claim.lease_id,
+            retry_base_seconds=0,
+        )
+    tracker.mark_failed(
+        claims[2].file_path,
+        "process in the process pool terminated abruptly",
+        claims[2].lease_id,
+        retry_base_seconds=0,
+    )
+
+    assert tracker.retry_failed("crawl", limit=1, category="http_503") == 1
+    assert sum(_row(tracker.db_path, path)["status"] == "pending" for path in ("a", "b")) == 1
+    assert _row(tracker.db_path, "worker")["status"] == "failed"
+
+
 def test_recovers_only_stale_processing_lease(tmp_path):
     tracker = ProgressTracker(tmp_path / "progress.db")
     tracker.initialize_paths(["stale.wet.gz", "live.wet.gz"], "crawl")
@@ -145,8 +168,35 @@ def test_filter_signatures_report_stamp_and_selectively_reset(tmp_path):
     assert tracker.reset_stale_completed("new") == 1
     assert _row(tracker.db_path, "stale")["status"] == "pending"
     assert _row(tracker.db_path, "unknown")["status"] == "completed"
-    assert tracker.stamp_unknown_completed("new") == 1
+    assert (
+        tracker.stamp_unknown_completed(
+            "new",
+            ["crawl"],
+            audit_id="audit-run",
+            audit_report_sha256="abc123",
+        )
+        == 1
+    )
     assert _row(tracker.db_path, "unknown")["filter_signature"] == "new"
+    assert tracker.get_signature_adoptions() == [
+        {
+            "adopted_at": tracker.get_signature_adoptions()[0]["adopted_at"],
+            "filter_signature": "new",
+            "crawl_id": "crawl",
+            "audit_id": "audit-run",
+            "audit_report_sha256": "abc123",
+            "rows_stamped": 1,
+        }
+    ]
+
+
+def test_stamp_unknown_requires_audit_evidence(tmp_path):
+    tracker = ProgressTracker(tmp_path / "progress.db")
+    tracker.initialize_paths(["unknown"], "crawl")
+    tracker.mark_completed("unknown", 10, 1)
+
+    with pytest.raises(ValueError, match="audit id and report hash"):
+        tracker.stamp_unknown_completed("new", ["crawl"])
 
 
 def test_audit_sampling_is_deterministic_stratified_and_read_only(tmp_path):

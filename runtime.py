@@ -2,6 +2,11 @@
 
 from dataclasses import dataclass
 
+from config import (
+    EVALUATION_SHADOW_SAMPLES_PER_SOURCE,
+    EVALUATION_SHADOW_SOURCE_RATE,
+)
+
 
 @dataclass(frozen=True)
 class RuntimeSettings:
@@ -15,6 +20,8 @@ class RuntimeSettings:
     precision: str = "fp32"
     adaptive_batching: bool = True
     cache_enabled: bool = True
+    shadow_samples_per_source: int = EVALUATION_SHADOW_SAMPLES_PER_SOURCE
+    shadow_source_rate: float = EVALUATION_SHADOW_SOURCE_RATE
     filter_signature: str = ""
     run_id: str = ""
 

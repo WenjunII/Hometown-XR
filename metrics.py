@@ -8,10 +8,12 @@ import json
 import os
 import time
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
 from config import METRICS_DIR, METRICS_FLUSH_SECONDS, RUN_HISTORY_PATH
+from failure_analysis import classify_failure
 
 
 def _utc_now() -> str:
@@ -57,7 +59,10 @@ class MetricsRecorder:
             "files_failed": 0,
             "files_interrupted": 0,
             "records_processed": 0,
+            "eligible_paragraphs": 0,
+            "keyword_rejected": 0,
             "keyword_candidates": 0,
+            "matches_accepted": 0,
             "matches_committed": 0,
             "bytes_read": 0,
             "parse_seconds": 0.0,
@@ -73,7 +78,10 @@ class MetricsRecorder:
             "cuda_oom_retries": 0,
             "batch_reductions": 0,
             "process_pool_restarts": 0,
+            "peak_worker_rss_bytes": 0,
+            "peak_vram_mb": 0.0,
         }
+        self.failure_categories: dict[str, int] = {}
 
     def add_target_files(self, count: int) -> None:
         self.target_files += max(0, count)
@@ -85,9 +93,10 @@ class MetricsRecorder:
         matches: int,
         seconds: float,
         cache_stats: dict[str, int] | None = None,
-        runtime_stats: dict[str, int] | None = None,
+        runtime_stats: dict[str, int | float] | None = None,
     ) -> None:
         self.counters["keyword_candidates"] += candidates
+        self.counters["matches_accepted"] += matches
         self.counters["inference_seconds"] += seconds
         self.counters["inference_batches"] += 1
         for key, value in (cache_stats or {}).items():
@@ -98,8 +107,10 @@ class MetricsRecorder:
         self.counters["batch_reductions"] += runtime_stats.get("batch_reductions", 0)
         if runtime_stats.get("encoding_batch_size"):
             self.encoding_batch_size = int(runtime_stats["encoding_batch_size"])
-        # Matches become durable only when their source transaction commits.
-        del matches
+        self.counters["peak_vram_mb"] = max(
+            self.counters["peak_vram_mb"],
+            float(runtime_stats.get("peak_vram_mb", 0.0)),
+        )
         self.flush()
 
     def record_source(
@@ -110,14 +121,27 @@ class MetricsRecorder:
         matches: int,
         bytes_read: int,
         parse_seconds: float,
+        eligible_paragraphs: int = 0,
+        keyword_rejected: int = 0,
+        peak_worker_rss_bytes: int = 0,
+        error: str | None = None,
     ) -> None:
         key = f"files_{status}"
         if key in self.counters:
             self.counters[key] += 1
         self.counters["records_processed"] += records
+        self.counters["eligible_paragraphs"] += eligible_paragraphs
+        self.counters["keyword_rejected"] += keyword_rejected
         self.counters["matches_committed"] += matches
         self.counters["bytes_read"] += bytes_read
         self.counters["parse_seconds"] += parse_seconds
+        self.counters["peak_worker_rss_bytes"] = max(
+            self.counters["peak_worker_rss_bytes"],
+            peak_worker_rss_bytes,
+        )
+        if status == "failed":
+            category = classify_failure(error)
+            self.failure_categories[category] = self.failure_categories.get(category, 0) + 1
         # Candidates are counted by inference batches, including batches that
         # span multiple sources, so they are intentionally not added here.
         del candidates
@@ -137,7 +161,7 @@ class MetricsRecorder:
         rate = finished / elapsed
         remaining = max(self.target_files - finished, 0)
         eta = remaining / rate if rate > 0 else None
-        return {
+        payload = {
             "schema_version": 3,
             "session_id": self.session_id,
             "started_at": self.started_at,
@@ -179,6 +203,27 @@ class MetricsRecorder:
             "eta_seconds": round(eta, 1) if eta is not None else None,
             "provenance": self.provenance,
         }
+        payload["acceptance_funnel"] = {
+            "eligible_paragraphs": int(self.counters["eligible_paragraphs"]),
+            "keyword_rejected": int(self.counters["keyword_rejected"]),
+            "keyword_candidates": int(self.counters["keyword_candidates"]),
+            "filter_accepted": int(self.counters["matches_accepted"]),
+            "committed": int(self.counters["matches_committed"]),
+            "filter_rejected": max(
+                0,
+                int(self.counters["keyword_candidates"])
+                - int(self.counters["matches_accepted"]),
+            ),
+        }
+        payload["failure_categories"] = dict(sorted(self.failure_categories.items()))
+        payload["resources"] = {
+            "peak_worker_rss_mb": round(
+                self.counters["peak_worker_rss_bytes"] / 1024**2,
+                1,
+            ),
+            "peak_vram_mb": round(float(self.counters["peak_vram_mb"]), 1),
+        }
+        return payload
 
     def flush(self, force: bool = False, final: bool = False) -> None:
         now = time.monotonic()
@@ -251,9 +296,117 @@ def latest_metrics(metrics_dir: str | Path = METRICS_DIR) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def print_latest(metrics_dir: str | Path = METRICS_DIR) -> None:
+def concise_metrics(payload: dict) -> dict:
+    """Remove bulky provenance contracts while retaining actionable run health."""
+    provenance = payload.get("provenance") or {}
+    return {
+        "schema_version": payload.get("schema_version"),
+        "session_id": payload.get("session_id"),
+        "started_at": payload.get("started_at"),
+        "final": payload.get("final"),
+        "profile": payload.get("profile"),
+        "gpu": payload.get("gpu"),
+        "workers": payload.get("workers"),
+        "target_files": payload.get("target_files"),
+        "elapsed_seconds": payload.get("elapsed_seconds"),
+        "eta_seconds": payload.get("eta_seconds"),
+        "files": {
+            "completed": payload.get("files_completed", 0),
+            "failed": payload.get("files_failed", 0),
+            "interrupted": payload.get("files_interrupted", 0),
+        },
+        "rates": payload.get("rates", {}),
+        "acceptance_funnel": payload.get("acceptance_funnel", {}),
+        "failure_categories": payload.get("failure_categories", {}),
+        "resources": payload.get("resources", {}),
+        "process_pool_restarts": payload.get("process_pool_restarts", 0),
+        "cuda_oom_retries": payload.get("cuda_oom_retries", 0),
+        "filter_signature": provenance.get("filter_signature"),
+        "run_mode": provenance.get("mode", "crawl"),
+    }
+
+
+def _history_rows(
+    metrics_dir: str | Path = METRICS_DIR,
+    history_path: str | Path = RUN_HISTORY_PATH,
+) -> list[dict]:
+    rows: dict[str, dict] = {}
+    shared = Path(history_path)
+    if shared.exists():
+        with gzip.open(shared, "rt", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    row = json.loads(line)
+                    rows[str(row.get("session_id", ""))] = row
+    local = Path(metrics_dir) / "history.jsonl"
+    if local.exists():
+        with local.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    row = json.loads(line)
+                    rows[str(row.get("session_id", ""))] = row
+    return sorted(
+        rows.values(),
+        key=lambda row: (str(row.get("started_at", "")), str(row.get("session_id", ""))),
+    )
+
+
+def summarize_run_history(
+    limit: int = 20,
+    profile: str | None = None,
+    metrics_dir: str | Path = METRICS_DIR,
+    history_path: str | Path = RUN_HISTORY_PATH,
+) -> dict:
+    if limit <= 0:
+        raise ValueError("history limit must be positive")
+    rows = _history_rows(metrics_dir, history_path)
+    if profile:
+        rows = [row for row in rows if row.get("profile") == profile]
+    selected = rows[-limit:]
+    return {
+        "runs": len(rows),
+        "shown": len(selected),
+        "profile": profile,
+        "history": [concise_metrics(row) for row in selected],
+    }
+
+
+def compare_profiles(
+    metrics_dir: str | Path = METRICS_DIR,
+    history_path: str | Path = RUN_HISTORY_PATH,
+) -> dict:
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for row in _history_rows(metrics_dir, history_path):
+        groups[str(row.get("profile", "unknown"))].append(row)
+    profiles = {}
+    for profile, rows in sorted(groups.items()):
+        elapsed = sum(float(row.get("elapsed_seconds", 0.0)) for row in rows)
+        completed = sum(int(row.get("files_completed", 0)) for row in rows)
+        failed = sum(int(row.get("files_failed", 0)) for row in rows)
+        bytes_read = sum(float(row.get("bytes_read", 0)) for row in rows)
+        profiles[profile] = {
+            "runs": len(rows),
+            "files_completed": completed,
+            "files_failed": failed,
+            "files_per_hour": round(completed / elapsed * 3600, 3) if elapsed else 0.0,
+            "megabytes_per_second": round(bytes_read / 1_000_000 / elapsed, 3)
+            if elapsed
+            else 0.0,
+            "peak_worker_rss_mb": max(
+                (float((row.get("resources") or {}).get("peak_worker_rss_mb", 0.0)) for row in rows),
+                default=0.0,
+            ),
+            "peak_vram_mb": max(
+                (float((row.get("resources") or {}).get("peak_vram_mb", 0.0)) for row in rows),
+                default=0.0,
+            ),
+        }
+    return {"profiles": profiles}
+
+
+def print_latest(metrics_dir: str | Path = METRICS_DIR, full: bool = False) -> None:
     payload = latest_metrics(metrics_dir)
     if payload is None:
         print("No extractor metrics have been recorded yet.")
         return
-    print(json.dumps(payload, indent=2))
+    print(json.dumps(payload if full else concise_metrics(payload), indent=2))

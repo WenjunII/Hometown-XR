@@ -9,11 +9,15 @@ import os
 import platform
 import time
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timezone
+from pathlib import Path
 
 from config import (
+    AUDIT_DIR,
     EVALUATION_DIR,
     HARDWARE_OVERRIDE_PATH,
+    LANG_DETECTION_THRESHOLD,
     SEMANTIC_THRESHOLD,
     get_hardware_profile,
 )
@@ -260,3 +264,143 @@ def run_benchmark(profile_name: str = "auto", quick: bool = False, write: bool =
         temporary.write_text(json.dumps(recommendation, indent=2) + "\n", encoding="utf-8")
         os.replace(temporary, HARDWARE_OVERRIDE_PATH)
     return payload
+
+
+def _write_workload_recommendation(profile, workers: int) -> dict:
+    recommendation = {
+        "profile": profile.name,
+        "workers": workers,
+        "candidate_batch_size": profile.candidate_batch_size,
+        "inference_batch_size": profile.inference_batch_size,
+        "encoding_batch_size": profile.encoding_batch_size,
+        "precision": profile.precision,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "gpu": "real-source benchmark",
+        "host": platform.node(),
+    }
+    HARDWARE_OVERRIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary = HARDWARE_OVERRIDE_PATH.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(recommendation, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, HARDWARE_OVERRIDE_PATH)
+    return recommendation
+
+
+def run_workload_benchmark(
+    profile_name: str,
+    crawl_id: str,
+    source_count: int = 5,
+    worker_counts: list[int] | None = None,
+    write: bool = False,
+    audit_dir: str | Path = AUDIT_DIR / "workload-benchmarks",
+) -> dict:
+    """Compare worker counts on the same real sources without touching crawl state."""
+    if source_count <= 0:
+        raise ValueError("source_count must be positive")
+    profile = get_hardware_profile(profile_name)
+    counts = sorted(set(worker_counts or [1, min(4, profile.workers), profile.workers]))
+    if not counts or counts[0] <= 0:
+        raise ValueError("worker counts must be positive")
+
+    from audit import build_audit_plan, output_match_set_digest, run_audit
+    from runtime import RuntimeSettings
+    from signatures import build_filter_signature, new_run_id
+
+    signature = build_filter_signature(SEMANTIC_THRESHOLD, LANG_DETECTION_THRESHOLD)
+    plan = build_audit_plan(
+        signature,
+        per_crawl=source_count,
+        crawl_ids=[crawl_id],
+        include_current=True,
+    )
+    if plan["total_sources"] < source_count:
+        raise ValueError(
+            f"only {plan['total_sources']} completed sources are available for {crawl_id}"
+        )
+
+    base = RuntimeSettings(
+        profile_name=profile.name,
+        workers=profile.workers,
+        candidate_batch_size=profile.candidate_batch_size,
+        inference_batch_size=profile.inference_batch_size,
+        encoding_batch_size=profile.encoding_batch_size,
+        semantic_threshold=SEMANTIC_THRESHOLD,
+        language_threshold=LANG_DETECTION_THRESHOLD,
+        precision=profile.precision,
+        adaptive_batching=True,
+        cache_enabled=False,
+        shadow_samples_per_source=0,
+        shadow_source_rate=0.0,
+        filter_signature=signature,
+        run_id="",
+    )
+    trials = []
+    for workers in counts:
+        settings = replace(base, workers=workers, run_id=new_run_id())
+        report = run_audit(
+            plan,
+            settings,
+            audit_dir=audit_dir,
+            sample_rate=0.0,
+        )
+        metrics = report["metrics"]
+        output_digest = output_match_set_digest(
+            Path(report["audit_root"]) / "output",
+            [str(source["file_path"]) for source in plan["sources"]],
+        )
+        trials.append(
+            {
+                "workers": workers,
+                "audit_id": report["audit_id"],
+                "completed": int(metrics.get("files_completed", 0)),
+                "failed": int(metrics.get("files_failed", 0)),
+                "elapsed_seconds": metrics.get("elapsed_seconds"),
+                "files_per_hour": (metrics.get("rates") or {}).get("files_per_hour"),
+                "megabytes_per_second": (metrics.get("rates") or {}).get(
+                    "megabytes_per_second"
+                ),
+                "peak_worker_rss_mb": (metrics.get("resources") or {}).get(
+                    "peak_worker_rss_mb"
+                ),
+                "peak_vram_mb": (metrics.get("resources") or {}).get("peak_vram_mb"),
+                "failure_categories": metrics.get("failure_categories", {}),
+                "process_pool_restarts": metrics.get("process_pool_restarts", 0),
+                "audit_matches": report["summary"].get("audit_matches", 0),
+                "output_digest": output_digest,
+                "equivalent_output": report["summary"][
+                    "equivalent_normalized_match_sets"
+                ],
+            }
+        )
+    all_trials_completed = all(
+        trial["completed"] == source_count and trial["failed"] == 0
+        for trial in trials
+    )
+    successful_digests = {trial["output_digest"] for trial in trials}
+    outputs_agree = all_trials_completed and len(successful_digests) == 1
+    eligible = [
+        trial
+        for trial in trials
+        if trial["completed"] == source_count
+        and trial["failed"] == 0
+        and outputs_agree
+    ]
+    best = max(eligible, key=lambda trial: trial["files_per_hour"] or 0.0) if eligible else None
+    applied = _write_workload_recommendation(profile, best["workers"]) if write and best else None
+    return {
+        "schema_version": 1,
+        "mode": "isolated_real_sources",
+        "profile": profile.name,
+        "crawl_id": crawl_id,
+        "sources_per_trial": source_count,
+        "historical_state_changed": False,
+        "cache_enabled": False,
+        "trials": trials,
+        "trial_outputs_agree": outputs_agree,
+        "recommended_workers": best["workers"] if best else None,
+        "recommendation_applied": applied,
+        "warning": (
+            None
+            if best
+            else "No trial completed every source with equivalent output; settings were not changed."
+        ),
+    }

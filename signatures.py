@@ -121,5 +121,7 @@ def build_run_manifest(
             "precision": settings.precision,
             "adaptive_batching": settings.adaptive_batching,
             "cache_enabled": settings.cache_enabled,
+            "shadow_samples_per_source": settings.shadow_samples_per_source,
+            "shadow_source_rate": settings.shadow_source_rate,
         },
     }

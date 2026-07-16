@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import heapq
 import logging
+import os
 import queue
 import time
 import warnings
@@ -14,6 +17,8 @@ from multiprocessing.context import BaseContext
 from typing import Any
 
 from config import (
+    EVALUATION_SHADOW_SAMPLES_PER_SOURCE,
+    EVALUATION_SHADOW_SOURCE_RATE,
     HEARTBEAT_INTERVAL_SECONDS,
     HTTP_RECOVERY_SUCCESSES,
     MAX_FILE_ATTEMPTS,
@@ -27,7 +32,7 @@ from metrics import MetricsRecorder
 from output import OutputWriter
 from processor import ProcessingStats, extract_paragraphs_from_arc, extract_paragraphs_from_wet
 from progress import ClaimedFile, ProgressTracker
-from record_identity import text_fingerprint
+from record_identity import stable_record_id, text_fingerprint
 from runtime import RuntimeSettings
 
 logger = logging.getLogger(__name__)
@@ -70,6 +75,16 @@ class CandidateBatch:
 
 
 @dataclass(frozen=True)
+class ShadowBatch:
+    """Representative paragraphs rejected before semantic inference."""
+
+    source_file: str
+    items: list[Any]
+    population_size: int
+    source_probability: float
+
+
+@dataclass(frozen=True)
 class SourceFinished:
     source_file: str
     status: str
@@ -77,6 +92,9 @@ class SourceFinished:
     candidates_found: int = 0
     bytes_read: int = 0
     parse_seconds: float = 0.0
+    eligible_paragraphs: int = 0
+    keyword_rejected: int = 0
+    peak_worker_rss_bytes: int = 0
     error: str | None = None
 
 
@@ -89,6 +107,9 @@ class FinalizedSource:
     matches_found: int
     bytes_read: int
     parse_seconds: float
+    eligible_paragraphs: int = 0
+    keyword_rejected: int = 0
+    peak_worker_rss_bytes: int = 0
     error: str | None = None
 
 
@@ -105,7 +126,10 @@ def init_parser_worker(candidate_queue, shutdown_event) -> None:
     warnings.filterwarnings("ignore", category=UserWarning)
 
 
-def _put_event(event: CandidateBatch | SourceFinished, final: bool = False) -> bool:
+def _put_event(
+    event: CandidateBatch | ShadowBatch | SourceFinished,
+    final: bool = False,
+) -> bool:
     if _candidate_queue is None:
         raise RuntimeError("parser worker queue is not initialized")
     deadline = time.monotonic() + 10 if final else None
@@ -127,10 +151,61 @@ def _stream_position(stream) -> int:
         return 0
 
 
+def _peak_process_rss_bytes() -> int:
+    """Return peak worker RSS using only platform standard libraries."""
+    try:
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            class ProcessMemoryCounters(ctypes.Structure):
+                _fields_ = [
+                    ("cb", wintypes.DWORD),
+                    ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            counters = ProcessMemoryCounters()
+            counters.cb = ctypes.sizeof(counters)
+            get_current_process = ctypes.windll.kernel32.GetCurrentProcess
+            get_current_process.restype = wintypes.HANDLE
+            get_memory_info = ctypes.windll.psapi.GetProcessMemoryInfo
+            get_memory_info.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(ProcessMemoryCounters),
+                wintypes.DWORD,
+            ]
+            get_memory_info.restype = wintypes.BOOL
+            process = get_current_process()
+            if get_memory_info(
+                process,
+                ctypes.byref(counters),
+                counters.cb,
+            ):
+                return int(counters.PeakWorkingSetSize)
+            return 0
+
+        import resource
+
+        peak = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        return peak if os.uname().sysname == "Darwin" else peak * 1024
+    except (AttributeError, ImportError, OSError, ValueError):
+        return 0
+
+
 def parse_source_worker(
     file_path: str,
     crawl_info: CrawlInfo,
     candidate_batch_size: int,
+    shadow_samples_per_source: int = EVALUATION_SHADOW_SAMPLES_PER_SOURCE,
+    shadow_source_rate: float = EVALUATION_SHADOW_SOURCE_RATE,
 ) -> SourceFinished:
     """Download, parse, and keyword-filter one source in a CPU process."""
     global _keyword_matcher
@@ -141,6 +216,17 @@ def parse_source_worker(
     status = "completed"
     error = None
     current_batch: list[tuple[Any, list[str]]] = []
+    shadow_heap: list[tuple[int, str, Any]] = []
+    shadow_population = 0
+    source_rank = int(
+        hashlib.sha256(f"shadow-source\0{file_path}".encode("utf-8")).hexdigest()[:16],
+        16,
+    ) / float(2**64)
+    collect_shadow = (
+        shadow_samples_per_source > 0
+        and shadow_source_rate > 0
+        and source_rank < shadow_source_rate
+    )
 
     try:
         if _parser_shutdown_event and _parser_shutdown_event.is_set():
@@ -165,11 +251,29 @@ def parse_source_worker(
                     _parser_shutdown_event,
                     stats,
                     file_path,
+                    include_unmatched=collect_shadow,
                 )
                 for paragraph, keyword_matches, _records_seen in generator:
                     if _parser_shutdown_event and _parser_shutdown_event.is_set():
                         stats.interrupted = True
                         break
+                    if not keyword_matches:
+                        shadow_population += 1
+                        sample_id = stable_record_id(
+                            paragraph.crawl_id,
+                            paragraph.source_file,
+                            paragraph.url,
+                            paragraph.warc_date,
+                            paragraph.text,
+                        )
+                        rank = int(sample_id[:16], 16)
+                        item = (-rank, sample_id, paragraph)
+                        if len(shadow_heap) < shadow_samples_per_source:
+                            heapq.heappush(shadow_heap, item)
+                        elif item > shadow_heap[0]:
+                            heapq.heapreplace(shadow_heap, item)
+                        continue
+
                     current_batch.append((paragraph, keyword_matches))
                     if len(current_batch) >= candidate_batch_size:
                         batch = CandidateBatch(file_path, current_batch)
@@ -189,6 +293,23 @@ def parse_source_worker(
                     candidates_found += len(current_batch)
                 else:
                     status = "interrupted"
+            if status == "completed" and shadow_heap:
+                shadow_items = [
+                    item[2]
+                    for item in sorted(
+                        shadow_heap,
+                        key=lambda item: (-item[0], item[1]),
+                    )
+                ]
+                _put_event(
+                    ShadowBatch(
+                        file_path,
+                        shadow_items,
+                        shadow_population,
+                        shadow_source_rate,
+                    ),
+                    final=True,
+                )
     except Exception as exc:
         status = "failed"
         error = f"{type(exc).__name__}: {exc}"
@@ -200,6 +321,9 @@ def parse_source_worker(
         candidates_found=candidates_found,
         bytes_read=bytes_read,
         parse_seconds=time.monotonic() - started,
+        eligible_paragraphs=stats.eligible_paragraphs,
+        keyword_rejected=stats.keyword_rejected,
+        peak_worker_rss_bytes=_peak_process_rss_bytes(),
         error=error,
     )
     _put_event(result, final=True)
@@ -414,6 +538,14 @@ class InferenceService:
             del self.pending[: self.settings.inference_batch_size]
             self._infer(batch)
 
+    def handle_shadow_batch(self, event: ShadowBatch) -> None:
+        self.sampler.observe_shadow(
+            event.items,
+            event.population_size,
+            self._sampling_language_detector,
+            source_probability=event.source_probability,
+        )
+
     def _infer(self, batch: list[tuple[Any, list[str]]]) -> None:
         if not batch:
             return
@@ -489,6 +621,9 @@ class InferenceService:
             matches_found=matches_found,
             bytes_read=event.bytes_read,
             parse_seconds=event.parse_seconds,
+            eligible_paragraphs=event.eligible_paragraphs,
+            keyword_rejected=event.keyword_rejected,
+            peak_worker_rss_bytes=event.peak_worker_rss_bytes,
             error=error,
         )
 
@@ -612,6 +747,10 @@ class ExtractionPipeline:
             matches,
             result.bytes_read,
             result.parse_seconds,
+            eligible_paragraphs=result.eligible_paragraphs,
+            keyword_rejected=result.keyword_rejected,
+            peak_worker_rss_bytes=result.peak_worker_rss_bytes,
+            error=result.error,
         )
         return completed, matches
 
@@ -649,6 +788,8 @@ class ExtractionPipeline:
                         claim.file_path,
                         crawl_info,
                         self.settings.candidate_batch_size,
+                        self.settings.shadow_samples_per_source,
+                        self.settings.shadow_source_rate,
                     )
                 except BrokenProcessPool:
                     tracker.release_claim(claim)
@@ -741,6 +882,9 @@ class ExtractionPipeline:
                     if isinstance(event, CandidateBatch):
                         if event.source_file in active:
                             self.service.handle_candidate_batch(event)
+                    elif isinstance(event, ShadowBatch):
+                        if event.source_file in active:
+                            self.service.handle_shadow_batch(event)
                     elif isinstance(event, SourceFinished):
                         finalize(event)
                 except Exception as exc:
@@ -758,6 +902,9 @@ class ExtractionPipeline:
                     if isinstance(event, CandidateBatch):
                         if event.source_file in active:
                             self.service.handle_candidate_batch(event)
+                    elif isinstance(event, ShadowBatch):
+                        if event.source_file in active:
+                            self.service.handle_shadow_batch(event)
                     elif isinstance(event, SourceFinished):
                         finalize(event)
                 except Exception as exc:
