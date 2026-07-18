@@ -89,8 +89,11 @@ rejected before GPU work without changing which records can pass.
 
 Each source has a SQLite lease. Interrupted sources return to `pending`, hard
 crashes are recovered after the lease timeout, and failed sources retry with
-exponential backoff. Output becomes visible only after an entire source is
-successfully parsed and filtered.
+exponential backoff plus deterministic jitter. Repeated 429/503 pressure opens
+a parent-level circuit cooldown shared by all parser submissions. The parser
+pool is recycled after a bounded amount of work or excessive worker RAM, while
+attempt-exhausted sources remain quarantined for operator review. Output becomes
+visible only after an entire source is successfully parsed and filtered.
 
 ## Quick Start
 
@@ -216,6 +219,9 @@ without sending the full corpus through the GPU. At checkpoint time, local
 candidates merge into the bounded `data/evaluation/replay.jsonl.gz` reservoir
 shared by both PCs. Replay compaction preserves representative rows and reserves
 space for active-learning rows. Human labels are never synthesized.
+An additional bounded two-percent probe retains up to 20 tuning examples per
+non-English detected language, improving minority-language review coverage
+without changing population-weighted benchmark odds.
 
 Every run records a filter signature over text normalization, the model
 revision, thresholds, paragraph bounds, narrative rules, keywords, and concept
@@ -223,9 +229,10 @@ anchors. New output, manifests, progress rows, and run history carry the
 signature and run ID.
 
 Run metrics now include the full paragraph funnel, accepted-versus-committed
-counts, categorized failures, worker peak RAM, GPU peak VRAM, pool restarts,
-throughput, and ETA. `python main.py metrics` prints a concise operational view;
-use `--full`, `--history`, or `--compare-profiles` for deeper inspection.
+counts, categorized failures, worker peak RAM, GPU peak VRAM, pool restarts and
+planned recycles, source cooldowns, throughput, and ETA. `python main.py metrics`
+prints a concise operational view; use `--full`, `--history`, or
+`--compare-profiles` for deeper inspection.
 
 ## Commands
 
@@ -244,6 +251,8 @@ resolve the project root regardless of the caller's current directory:
 | `.\scripts\audit.ps1` | Plan a deterministic, isolated historical-source audit |
 | `.\scripts\audit.ps1 -Action run -Profile 3080 -Apply` | Run the reviewed audit without changing historical state |
 | `.\scripts\evaluation.ps1` | Show annotation balance and the next evaluation action |
+| `.\scripts\evaluation.ps1 -Action serve -OpenBrowser` | Open the local browser annotation workbench |
+| `.\scripts\evaluation.ps1 -Action multilingual` | Report language evidence, anchor gaps, and keyword misses |
 | `.\scripts\evaluation.ps1 -Action annotate -Prediction rejected -Limit 25` | Review a focused batch interactively |
 | `.\scripts\retry.ps1 -All -Category http_503 -Limit 25 -Apply` | Reset one bounded failure batch after a dry-run report |
 | `.\scripts\refresh-results.ps1` | Dry-run current filters and rebuild the local canonical dataset |
@@ -257,6 +266,7 @@ The underlying Python CLI remains available directly:
 | `python main.py run --crawl ID` | Start or resume one crawl |
 | `python main.py run --all` | Process every known crawl |
 | `python main.py run --all --strategy round-robin --chunk-size 100` | Rotate bounded chunks across old and new crawls |
+| `python main.py run --all --strategy yield-aware --chunk-size 100` | Prioritize smoothed high-yield crawls while retaining exploration and coverage |
 | `python main.py run --limit 5` | Process at most five ready sources globally |
 | `python main.py status` | Show checkpoint progress |
 | `python main.py metrics` | Show concise latest rates, funnel, failures, resources, and ETA |
@@ -284,6 +294,8 @@ The underlying Python CLI remains available directly:
 | `python main.py evaluation sample` | Build a real-text annotation sample |
 | `python main.py evaluation annotate` | Label samples interactively |
 | `python main.py evaluation annotate --split holdout --quick` | Label a balanced holdout queue with model categories accepted |
+| `python main.py evaluation serve --open-browser` | Serve the protected local annotation workbench |
+| `python main.py evaluation multilingual` | Write multilingual coverage and keyword-miss diagnostics |
 | `python main.py evaluation undo --sample-id ID` | Restore the previous label and annotation metadata |
 | `python main.py evaluation report` | Compute precision, recall, F1, and tuning |
 | `python main.py evaluation replay` | Compact local decisions into the shared replay reservoir |
@@ -368,12 +380,14 @@ python main.py parquet --dedupe exact
 python main.py parquet --dedupe near --near-distance 3
 ```
 
-The export contains three Zstandard-compressed tables partitioned by `crawl_id`
+Dataset schema 5 contains four Zstandard-compressed tables partitioned by `crawl_id`
 and `language`:
 
 - `stories/` contains one canonical text with quality and diversity fields.
 - `provenance/` maps every original crawl capture to its canonical `story_id`.
 - `curated/` is a conservative default view of personal prose within the domain cap.
+- `passages/` assembles adjacent accepted paragraphs without crossing a document
+  or language boundary.
 
 Exact canonicalization uses normalized text independently of URL. Near
 deduplication uses 64-bit SimHash with an SQLite-backed band index, so memory
@@ -383,9 +397,12 @@ signals, structural template fingerprints, concept-cluster IDs, document
 context, and content categories (`personal_prose`, `lyrics`, `poetry`,
 `commercial`, `genealogy`, and `adult_content`). Category flags never delete
 records; sensitive and non-story material remains in `stories/` and
-`provenance/`. The
-manifest reports concentration and diversity diagnostics plus every file
-checksum. Adjust the research-view limit with `--domain-story-cap`.
+`provenance/`. Passage rows retain all component record/story IDs, paragraph
+indices, and context. Their candidate place mentions, years, decades, temporal
+phrases, and migration routes use the explainable `regex-v1` method with an
+evidence confidence; they are research hints, not geocoded facts. The manifest
+reports concentration and diversity diagnostics plus every file checksum.
+Adjust the research-view limit with `--domain-story-cap`.
 
 `data/parquet/` is ignored because it is reproducible and can be large.
 
@@ -421,6 +438,10 @@ and `1,098` are in the default curated view. The retained full table classifies
 Those results remain preserved. The newer narrative ruleset creates a new filter
 signature, so historical rows are reported as stale or unknown until audited;
 they are not silently relabeled and are not automatically queued for recrawl.
+The current anchor catalog now includes one native-language narrative anchor for
+all 20 keyword languages. That is a recall-affecting signature change: evaluate
+it with the isolated audit path below before adopting or selectively recrawling
+historical checkpoint rows.
 
 Reprocess completed Common Crawl sources only after a recall-affecting change,
 such as broader keywords or concept anchors, a lower threshold, a new model
@@ -494,6 +515,8 @@ Build an unlabeled sample from real committed records and sampled live rejects:
 .\scripts\evaluation.ps1 -Action annotate -Prediction rejected -Limit 25
 .\scripts\evaluation.ps1 -Action annotate -Prediction accepted -Limit 75
 .\scripts\evaluation.ps1 -Action annotate -Split holdout -Limit 25 -Quick
+.\scripts\evaluation.ps1 -Action serve -OpenBrowser
+.\scripts\evaluation.ps1 -Action multilingual
 .\scripts\evaluation.ps1 -Action report
 ```
 
@@ -506,6 +529,18 @@ notes, annotator, timestamp, and label history are kept when a sample is rebuilt
 Annotation queues rotate across prediction and language strata. `-Language`,
 `-Prediction`, `-Split`, `-SampleId`, `-Relabel`, and `-Quick` support focused
 work, while `-Action undo` restores the previous label.
+
+The browser workbench binds to `127.0.0.1:8765` by default, uses the same atomic
+annotation file and bounded history as the terminal workflow, and supports
+positive, negative, skip, undo, content taxonomy, notes, and queue filters.
+Representative holdout rows are blind: model decisions, scores, keywords,
+concepts, and predicted categories are omitted from the browser API until
+evaluation reporting. Use `-Port` when that local port is occupied.
+
+The multilingual report compares keyword languages, native anchors, observed
+candidate/annotation support, calibration readiness, shadow coverage, and
+human-labeled positive keyword rejects. It never invents labels or activates
+threshold changes.
 
 Reports use only human labels and explicitly identify their metric scope:
 descriptive active sample, weighted downstream filter, or weighted end-to-end
@@ -555,6 +590,7 @@ downloading GPU models or Git LFS data.
 
 ```text
 main.py                 CLI and run orchestration
+annotation_workbench.py localhost labeling UI and protected JSON API
 audit.py                isolated comparison and signature-adoption evidence
 pipeline.py             bounded CPU queue and shared GPU inference owner
 progress.py             SQLite leases, retries, and checkpoint migration
@@ -571,7 +607,9 @@ failure_analysis.py     stable operational failure categories
 benchmark.py            synthetic precision and isolated real-source benchmarks
 dedupe.py               disk-backed exact and SimHash duplicate index
 parquet_export.py       staged partitioned analytical export
+story_reconstruction.py adjacent passages and explainable place/time metadata
 quality.py              boilerplate, template, domain, and diversity signals
+scheduling.py           coverage-preserving yield-aware crawl ranking
 signatures.py           filter contracts, run IDs, and Git provenance
 refilter_output.py      transactional schema/filter migration
 4090/                   compatibility launchers only

@@ -87,13 +87,14 @@ try {
         Write-Output (
             ("Canonical refresh: {0} captures -> {1} stories " +
             "({2} exact duplicates, {3} near duplicates); {4} within domain cap; " +
-            "{5} in the default curated view.") -f
+            "{5} in the default curated view; {6} reconstructed passages.") -f
             $Manifest.input_captures,
             $Manifest.rows,
             $Manifest.duplicates.exact,
             $Manifest.duplicates.near,
             $Manifest.quality.stories_within_domain_cap,
-            $Manifest.tables.curated.rows
+            $Manifest.tables.curated.rows,
+            $Manifest.tables.passages.rows
         )
     }
 

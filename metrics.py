@@ -78,6 +78,9 @@ class MetricsRecorder:
             "cuda_oom_retries": 0,
             "batch_reductions": 0,
             "process_pool_restarts": 0,
+            "process_pool_recycles": 0,
+            "source_cooldowns": 0,
+            "source_cooldown_seconds": 0.0,
             "peak_worker_rss_bytes": 0,
             "peak_vram_mb": 0.0,
         }
@@ -149,6 +152,15 @@ class MetricsRecorder:
 
     def record_pool_restart(self) -> None:
         self.counters["process_pool_restarts"] += 1
+        self.flush(force=True)
+
+    def record_pool_recycle(self) -> None:
+        self.counters["process_pool_recycles"] += 1
+        self.flush(force=True)
+
+    def record_source_cooldown(self, seconds: float) -> None:
+        self.counters["source_cooldowns"] += 1
+        self.counters["source_cooldown_seconds"] += max(0.0, seconds)
         self.flush(force=True)
 
     def snapshot(self, final: bool = False) -> dict:
@@ -320,6 +332,9 @@ def concise_metrics(payload: dict) -> dict:
         "failure_categories": payload.get("failure_categories", {}),
         "resources": payload.get("resources", {}),
         "process_pool_restarts": payload.get("process_pool_restarts", 0),
+        "process_pool_recycles": payload.get("process_pool_recycles", 0),
+        "source_cooldowns": payload.get("source_cooldowns", 0),
+        "source_cooldown_seconds": payload.get("source_cooldown_seconds", 0),
         "cuda_oom_retries": payload.get("cuda_oom_retries", 0),
         "filter_signature": provenance.get("filter_signature"),
         "run_mode": provenance.get("mode", "crawl"),

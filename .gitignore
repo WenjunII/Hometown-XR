@@ -38,6 +38,7 @@ data/.parquet-staging-*/
 data/.parquet-backup-*/
 data/evaluation/candidate_samples.jsonl
 data/evaluation/report.json
+data/evaluation/multilingual-report.json
 data/audits/
 data/output/_manifests/*.json
 data/output/_manifest-catalog.jsonl.gz.tmp

@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("status", "sample", "annotate", "report", "replay", "undo")]
+    [ValidateSet("status", "sample", "annotate", "report", "replay", "undo", "multilingual", "serve")]
     [string]$Action = "status",
 
     [ValidateRange(1, 1000000)]
@@ -21,7 +21,14 @@ param(
 
     [switch]$Relabel,
 
-    [switch]$Quick
+    [switch]$Quick,
+
+    [string]$HostName = "127.0.0.1",
+
+    [ValidateRange(1, 65535)]
+    [int]$Port = 8765,
+
+    [switch]$OpenBrowser
 )
 
 $ErrorActionPreference = "Stop"
@@ -66,6 +73,12 @@ elseif ($Action -eq "annotate") {
 }
 elseif ($Action -eq "undo" -and -not [string]::IsNullOrWhiteSpace($SampleId)) {
     $Arguments += @("--sample-id", $SampleId)
+}
+elseif ($Action -eq "serve") {
+    $Arguments += @("--host", $HostName, "--port", $Port)
+    if ($OpenBrowser) {
+        $Arguments += "--open-browser"
+    }
 }
 
 $ExitCode = 1

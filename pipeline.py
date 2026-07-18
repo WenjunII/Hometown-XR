@@ -20,14 +20,18 @@ from config import (
     EVALUATION_SHADOW_SAMPLES_PER_SOURCE,
     EVALUATION_SHADOW_SOURCE_RATE,
     HEARTBEAT_INTERVAL_SECONDS,
+    HTTP_CIRCUIT_BASE_SECONDS,
+    HTTP_CIRCUIT_MAX_SECONDS,
     HTTP_RECOVERY_SUCCESSES,
     MAX_FILE_ATTEMPTS,
     PROCESS_POOL_MAX_RESTARTS,
+    PROCESS_POOL_RECYCLE_SOURCES,
+    WORKER_RSS_RECYCLE_MB,
 )
 from crawl_catalog import CrawlInfo
 from downloader import stream_file
 from evaluation import DecisionSampler
-from failure_analysis import is_transient_http_failure
+from failure_analysis import classify_failure, is_transient_http_failure
 from metrics import MetricsRecorder
 from output import OutputWriter
 from processor import ProcessingStats, extract_paragraphs_from_arc, extract_paragraphs_from_wet
@@ -42,25 +46,56 @@ _AUTO_CACHE = object()
 class _AdaptiveSourceThrottle:
     """Reduce source concurrency after server pressure and recover gradually."""
 
-    def __init__(self, maximum: int, recovery_successes: int = HTTP_RECOVERY_SUCCESSES):
+    def __init__(
+        self,
+        maximum: int,
+        recovery_successes: int = HTTP_RECOVERY_SUCCESSES,
+        circuit_base_seconds: float = HTTP_CIRCUIT_BASE_SECONDS,
+        circuit_max_seconds: float = HTTP_CIRCUIT_MAX_SECONDS,
+        clock=time.monotonic,
+    ):
         self.maximum = max(1, maximum)
         self.current = self.maximum
         self.recovery_successes = max(1, recovery_successes)
+        self.circuit_base_seconds = max(0.0, circuit_base_seconds)
+        self.circuit_max_seconds = max(
+            self.circuit_base_seconds, circuit_max_seconds
+        )
+        self.clock = clock
         self.successes = 0
+        self.pressure_events = 0
+        self.cooldown_until = 0.0
+        self.last_cooldown_seconds = 0.0
 
     def available_slots(self, in_flight: int) -> int:
+        if self.cooldown_remaining() > 0:
+            return 0
         return max(0, self.current - in_flight)
+
+    def cooldown_remaining(self) -> float:
+        return max(0.0, self.cooldown_until - self.clock())
 
     def observe(self, status: str, error: str | None = None) -> tuple[int, int] | None:
         previous = self.current
+        self.last_cooldown_seconds = 0.0
         if status == "failed" and is_transient_http_failure(error):
             self.current = max(1, self.current // 2)
             self.successes = 0
+            if classify_failure(error) in {"http_429", "http_503"}:
+                self.pressure_events += 1
+                cooldown = min(
+                    self.circuit_max_seconds,
+                    self.circuit_base_seconds * 2 ** (self.pressure_events - 1),
+                )
+                self.cooldown_until = max(self.cooldown_until, self.clock() + cooldown)
+                self.last_cooldown_seconds = cooldown
         elif status == "completed":
             self.successes += 1
             if self.successes >= self.recovery_successes and self.current < self.maximum:
                 self.current += 1
                 self.successes = 0
+            if self.current == self.maximum:
+                self.pressure_events = 0
         else:
             self.successes = 0
         if self.current != previous:
@@ -674,6 +709,9 @@ class ExtractionPipeline:
         self.queue = context.Queue(maxsize=max(8, settings.workers * 4))
         self.service = service or InferenceService(settings, metrics)
         self.executor: ProcessPoolExecutor | None = None
+        self.source_throttle = _AdaptiveSourceThrottle(settings.workers)
+        self.sources_since_recycle = 0
+        self.recycle_requested = False
 
     def _create_executor(self) -> ProcessPoolExecutor:
         return ProcessPoolExecutor(
@@ -773,11 +811,15 @@ class ExtractionPipeline:
         last_heartbeat = time.monotonic()
         fatal_error = None
         pool_restarts = 0
-        throttle = _AdaptiveSourceThrottle(self.settings.workers)
+        throttle = self.source_throttle
 
         def submit_available() -> None:
             nonlocal submitted
-            if self.shutdown_event.is_set() or submitted >= target:
+            if (
+                self.shutdown_event.is_set()
+                or submitted >= target
+                or self.recycle_requested
+            ):
                 return
             slots = min(throttle.available_slots(len(futures)), target - submitted)
             for claim in tracker.claim_files(crawl_info.crawl_id, slots, max_attempts):
@@ -803,7 +845,20 @@ class ExtractionPipeline:
             completed, matches = self._record_finalized(tracker, claim, result)
             files_completed += completed
             matches_found += matches
+            self.sources_since_recycle += 1
+            if (
+                self.sources_since_recycle >= PROCESS_POOL_RECYCLE_SOURCES
+                or result.peak_worker_rss_bytes
+                >= WORKER_RSS_RECYCLE_MB * 1024**2
+            ):
+                self.recycle_requested = True
             changed = throttle.observe(result.status, result.error)
+            if throttle.last_cooldown_seconds:
+                self.metrics.record_source_cooldown(throttle.last_cooldown_seconds)
+                logger.warning(
+                    "Common Crawl pressure opened a %.0f-second source cooldown",
+                    throttle.last_cooldown_seconds,
+                )
             if changed:
                 logger.warning(
                     "Adjusted parser concurrency from %s to %s after %s",
@@ -839,6 +894,8 @@ class ExtractionPipeline:
                 ) from exc
             pool_restarts += 1
             self._restart_executor()
+            self.sources_since_recycle = 0
+            self.recycle_requested = False
             self.metrics.record_pool_restart()
             logger.warning(
                 "Restarted parser process pool (%s/%s)",
@@ -959,11 +1016,29 @@ class ExtractionPipeline:
                         finalize(SourceFinished(source_file, "interrupted"))
                 continue
 
+            if (
+                self.recycle_requested
+                and not futures
+                and not active
+                and submitted < target
+            ):
+                self._restart_executor()
+                self.sources_since_recycle = 0
+                self.recycle_requested = False
+                self.metrics.record_pool_recycle()
+                logger.info("Recycled parser process pool after bounded source work")
+
             try:
                 submit_available()
             except BrokenProcessPool as exc:
                 recover_broken_pool(exc)
             if not futures and not active and submitted < target:
+                cooldown = throttle.cooldown_remaining()
+                if cooldown > 0:
+                    time.sleep(min(0.2, cooldown))
+                    continue
+                if self.recycle_requested:
+                    continue
                 break
 
         return files_completed, matches_found

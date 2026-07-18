@@ -85,8 +85,14 @@ def test_partitioned_parquet_export_is_staged_and_deduplicated(tmp_path):
     saved = json.loads((target / "_manifest.json").read_text(encoding="utf-8"))
     assert saved["files"][0]["sha256"]
     assert saved["tables"]["provenance"]["rows"] == 2
-    assert saved["dataset_schema_version"] == 4
+    assert saved["dataset_schema_version"] == 5
     assert saved["tables"]["curated"]["rows"] == 1
+    assert saved["tables"]["passages"]["rows"] == 1
+    passage = ds.dataset(
+        target / "passages", format="parquet", partitioning="hive"
+    ).to_table().to_pylist()[0]
+    assert passage["paragraph_count"] == 1
+    assert passage["metadata_method"] == "regex-v1"
     curated = ds.dataset(target / "curated", format="parquet", partitioning="hive")
     curated_row = curated.to_table().to_pylist()[0]
     assert curated_row["content_category"] == "personal_prose"

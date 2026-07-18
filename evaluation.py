@@ -9,6 +9,7 @@ import io
 import json
 import math
 import os
+import threading
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,8 @@ from config import (
     EVALUATION_MIN_BASELINE_LABELS,
     EVALUATION_MIN_HOLDOUT_LABELS,
     EVALUATION_MIN_LANGUAGE_LABELS,
+    EVALUATION_MINORITY_LANGUAGE_QUOTA,
+    EVALUATION_MINORITY_PROBE_RATE,
     EVALUATION_REPLAY_MAX_SAMPLES,
     EVALUATION_SAMPLE_RATE,
     EVALUATION_UNCERTAIN_SAMPLE_RATE,
@@ -36,6 +39,8 @@ from record_identity import stable_record_id
 if TYPE_CHECKING:
     from language_detector import LanguageDetector
     from matcher import MatchDecision
+
+_ANNOTATION_LOCK = threading.RLock()
 
 
 def _utc_now() -> str:
@@ -173,6 +178,9 @@ class DecisionSampler:
             if row.get("sample_id")
         }
         self._known = set(self._known_roles)
+        self._language_written = Counter(
+            str(row.get("language") or "unknown") for row in known_rows
+        )
 
     def observe(
         self,
@@ -208,7 +216,16 @@ class DecisionSampler:
                 and uncertain_rank < EVALUATION_UNCERTAIN_SAMPLE_RATE
                 and tuning_capacity
             )
-            if not selected_for_coverage and not selected_for_uncertainty:
+            minority_rank = int(sample_id[32:48], 16) / float(2**64)
+            selected_for_minority_probe = (
+                minority_rank < EVALUATION_MINORITY_PROBE_RATE
+                and tuning_capacity
+            )
+            if (
+                not selected_for_coverage
+                and not selected_for_uncertainty
+                and not selected_for_minority_probe
+            ):
                 continue
             existing_role = self._known_roles.get(sample_id)
             can_upgrade = (
@@ -219,6 +236,18 @@ class DecisionSampler:
             if existing_role is not None and not can_upgrade:
                 continue
             language, confidence = language_detector.detect(paragraph.text)
+            selected_for_minority = (
+                selected_for_minority_probe
+                and language not in {"en", "unknown"}
+                and self._language_written[language]
+                < EVALUATION_MINORITY_LANGUAGE_QUOTA
+            )
+            if (
+                not selected_for_coverage
+                and not selected_for_uncertainty
+                and not selected_for_minority
+            ):
+                continue
             sample_role = (
                 "benchmark"
                 if selected_for_coverage and self.representative
@@ -253,7 +282,13 @@ class DecisionSampler:
                     "rejection_reason": decision.rejection_reason,
                     "uncertainty_score": uncertainty,
                     "selection_reason": (
-                        "coverage" if selected_for_coverage else "decision_boundary"
+                        "coverage"
+                        if selected_for_coverage
+                        else (
+                            "decision_boundary"
+                            if selected_for_uncertainty
+                            else "minority_language"
+                        )
                     ),
                     "sampling_stratum": (
                         "filter_accept" if decision.accepted else "filter_reject"
@@ -275,6 +310,7 @@ class DecisionSampler:
                 selected[-1]["raw_paragraph"] = paragraph.raw_text
             self._known.add(sample_id)
             self._known_roles[sample_id] = sample_role
+            self._language_written[language] += 1
             if sample_role == "benchmark":
                 benchmark_selected += 1
             else:
@@ -1039,43 +1075,269 @@ def undo_annotation(
 ) -> dict:
     """Undo the latest label, or the latest label for one explicit sample."""
     path = Path(annotation_path)
-    rows = _read_jsonl(path)
-    candidates = [
-        row
-        for row in rows
-        if row.get("label") in {"positive", "negative"}
-        and (sample_id is None or row.get("sample_id") == sample_id)
-    ]
-    if not candidates:
-        raise ValueError("no matching labeled sample is available to undo")
-    row = max(
-        candidates,
-        key=lambda value: (
-            str(value.get("labeled_at", "")),
-            str(value.get("sample_id", "")),
-        ),
-    )
-    history = list(row.get("label_history") or [])
-    previous = history.pop() if history else {}
-    for key in ("label", "content_label", "annotator", "labeled_at"):
-        value = previous.get(key)
-        if value is None:
-            row.pop(key, None)
+    with _ANNOTATION_LOCK:
+        rows = _read_jsonl(path)
+        candidates = [
+            row
+            for row in rows
+            if row.get("label") in {"positive", "negative"}
+            and (sample_id is None or row.get("sample_id") == sample_id)
+        ]
+        if not candidates:
+            raise ValueError("no matching labeled sample is available to undo")
+        row = max(
+            candidates,
+            key=lambda value: (
+                str(value.get("labeled_at", "")),
+                str(value.get("sample_id", "")),
+            ),
+        )
+        history = list(row.get("label_history") or [])
+        previous = history.pop() if history else {}
+        for key in ("label", "content_label", "annotator", "labeled_at"):
+            value = previous.get(key)
+            if value is None:
+                row.pop(key, None)
+            else:
+                row[key] = value
+        if history:
+            row["label_history"] = history
         else:
-            row[key] = value
-    if history:
-        row["label_history"] = history
-    else:
-        row.pop("label_history", None)
-    _atomic_jsonl(path, rows)
-    return {
-        "path": str(path),
-        "sample_id": row.get("sample_id"),
-        "restored_label": row.get("label"),
-        "labeled_total": sum(
-            item.get("label") in {"positive", "negative"} for item in rows
+            row.pop("label_history", None)
+        _atomic_jsonl(path, rows)
+        return {
+            "path": str(path),
+            "sample_id": row.get("sample_id"),
+            "restored_label": row.get("label"),
+            "labeled_total": sum(
+                item.get("label") in {"positive", "negative"} for item in rows
+            ),
+        }
+
+
+def annotation_queue(
+    annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
+    language: str | None = None,
+    predicted_accept: bool | None = None,
+    split: str | None = None,
+    relabel: bool = False,
+) -> list[dict]:
+    """Return a stable, language-balanced annotation queue for any UI."""
+    if split not in {None, "all", "tuning", "holdout"}:
+        raise ValueError("split must be tuning, holdout, or all")
+    rows = [
+        _enrich_for_active_learning(row)
+        for row in _read_jsonl(Path(annotation_path))
+        if (relabel or row.get("label") not in {"positive", "negative"})
+        and (not language or row.get("language") == language)
+        and (
+            predicted_accept is None
+            or bool(row.get("predicted_accept")) == predicted_accept
+        )
+        and (
+            split in {None, "all"}
+            or row.get("evaluation_split", "tuning") == split
+        )
+    ]
+    buckets: dict[str, list[dict]] = defaultdict(list)
+    for row in sorted(
+        rows,
+        key=lambda value: (
+            -float(value.get("uncertainty_score", 0.0)),
+            _rank(value),
         ),
+    ):
+        buckets[str(row.get("language") or "unknown")].append(row)
+    ordered = []
+    while True:
+        added = False
+        for bucket in sorted(buckets):
+            if buckets[bucket]:
+                ordered.append(buckets[bucket].pop(0))
+                added = True
+        if not added:
+            return ordered
+
+
+def label_annotation(
+    sample_id: str,
+    label: str,
+    content_label: str | None = None,
+    notes: str | None = None,
+    annotator: str | None = None,
+    annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
+    expected_labeled_at: str | None = None,
+) -> dict:
+    """Atomically label one row while preserving bounded annotation history."""
+    if label not in {"positive", "negative"}:
+        raise ValueError("label must be positive or negative")
+    allowed_content = {
+        "personal_prose",
+        "lyrics",
+        "poetry",
+        "commercial",
+        "genealogy",
+        "adult_content",
+        "unknown",
     }
+    if content_label is not None and content_label not in allowed_content:
+        raise ValueError("unknown content label")
+    path = Path(annotation_path)
+    with _ANNOTATION_LOCK:
+        rows = _read_jsonl(path)
+        row = next(
+            (item for item in rows if str(item.get("sample_id")) == sample_id),
+            None,
+        )
+        if row is None:
+            raise ValueError(f"unknown sample id: {sample_id}")
+        if (
+            expected_labeled_at is not None
+            and row.get("labeled_at") != expected_labeled_at
+        ):
+            raise RuntimeError("annotation changed since it was loaded")
+        changed_at = _utc_now()
+        history = list(row.get("label_history") or [])
+        history.append(
+            {
+                "label": row.get("label"),
+                "content_label": row.get("content_label"),
+                "annotator": row.get("annotator"),
+                "labeled_at": row.get("labeled_at"),
+                "changed_at": changed_at,
+            }
+        )
+        row["label_history"] = history[-20:]
+        row["label"] = label
+        row["content_label"] = (
+            content_label
+            or row.get("content_label")
+            or row.get("predicted_content_category")
+            or "unknown"
+        )
+        row["annotator"] = (annotator or "local-workbench").strip()[:120]
+        row["labeled_at"] = changed_at
+        if notes is not None:
+            row["notes"] = notes.strip()[:4000]
+            row["notes_updated_at"] = changed_at
+        _atomic_jsonl(path, rows)
+        return {
+            "sample_id": sample_id,
+            "label": label,
+            "content_label": row["content_label"],
+            "labeled_at": changed_at,
+            "labeled_total": sum(
+                item.get("label") in {"positive", "negative"} for item in rows
+            ),
+            "remaining": sum(
+                item.get("label") not in {"positive", "negative"} for item in rows
+            ),
+        }
+
+
+def multilingual_recall_report(
+    annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
+    candidate_path: str | Path = EVALUATION_DIR / "candidate_samples.jsonl",
+    replay_path: str | Path = REPLAY_PATH,
+    report_path: str | Path = EVALUATION_DIR / "multilingual-report.json",
+) -> dict:
+    """Report language evidence, native-anchor gaps, and labeled keyword misses."""
+    from concepts import CONCEPT_ANCHOR_LANGUAGES
+    from keywords import KEYWORDS_BY_LANGUAGE
+
+    annotations = [
+        _enrich_for_active_learning(row) for row in _read_jsonl(Path(annotation_path))
+    ]
+    candidates_by_id = {
+        str(row.get("sample_id", "")): _enrich_for_active_learning(row)
+        for row in [*_read_jsonl(Path(replay_path)), *_read_jsonl(Path(candidate_path))]
+        if row.get("sample_id")
+    }
+    configured = set(KEYWORDS_BY_LANGUAGE)
+    anchored = set(CONCEPT_ANCHOR_LANGUAGES)
+    observed = {
+        str(row.get("language") or "unknown")
+        for row in [*annotations, *candidates_by_id.values()]
+    }
+    languages = {}
+    keyword_misses = []
+    for language in sorted(configured | anchored | observed):
+        annotation_rows = [
+            row for row in annotations if str(row.get("language") or "unknown") == language
+        ]
+        candidate_rows = [
+            row
+            for row in candidates_by_id.values()
+            if str(row.get("language") or "unknown") == language
+        ]
+        labeled = [
+            row for row in annotation_rows if row.get("label") in {"positive", "negative"}
+        ]
+        misses = [
+            row
+            for row in labeled
+            if row.get("label") == "positive"
+            and _sampling_stratum(row) == "keyword_reject"
+        ]
+        keyword_misses.extend(misses)
+        positives = sum(row.get("label") == "positive" for row in labeled)
+        languages[language] = {
+            "keyword_terms": len(KEYWORDS_BY_LANGUAGE.get(language, [])),
+            "native_anchors": CONCEPT_ANCHOR_LANGUAGES.count(language),
+            "candidate_samples": len(candidate_rows),
+            "annotation_samples": len(annotation_rows),
+            "labeled": len(labeled),
+            "positive": positives,
+            "negative": len(labeled) - positives,
+            "keyword_shadow": sum(
+                _sampling_stratum(row) == "keyword_reject" for row in candidate_rows
+            ),
+            "keyword_miss_positives": len(misses),
+            "ready_for_language_calibration": (
+                len(labeled) >= EVALUATION_MIN_LANGUAGE_LABELS
+                and 0 < positives < len(labeled)
+            ),
+        }
+
+    payload = {
+        "schema_version": 1,
+        "generated_at": _utc_now(),
+        "configured_keyword_languages": len(configured),
+        "native_anchor_languages": len(anchored),
+        "observed_languages": len(observed),
+        "languages_missing_native_anchor": sorted(configured - anchored),
+        "languages_without_samples": sorted(
+            language
+            for language in configured
+            if not languages[language]["candidate_samples"]
+            and not languages[language]["annotation_samples"]
+        ),
+        "languages_ready_for_calibration": sorted(
+            language
+            for language, values in languages.items()
+            if values["ready_for_language_calibration"]
+        ),
+        "labeled_keyword_misses": len(keyword_misses),
+        "keyword_miss_examples": [
+            {
+                "sample_id": row.get("sample_id"),
+                "language": row.get("language"),
+                "url": row.get("url"),
+                "paragraph": str(row.get("paragraph", ""))[:500],
+            }
+            for row in sorted(keyword_misses, key=_rank)[:25]
+        ],
+        "languages": languages,
+    }
+    report_path = Path(report_path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = report_path.with_suffix(report_path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, report_path)
+    return payload
 
 
 def _wilson(successes: int, total: int) -> list[float] | None:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from concepts import concept_anchor_language
 from main import _schedule_order
+from scheduling import yield_aware_order
 from signatures import build_filter_signature, filter_contract
 
 
@@ -27,6 +28,14 @@ def test_crawl_scheduling_supports_newest_oldest_and_balanced_order():
         "newer",
         "older",
     ]
+    summaries = [
+        {"crawl_id": "oldest", "completed": 100, "matches": 5, "total": 200},
+        {"crawl_id": "older", "completed": 100, "matches": 50, "total": 200},
+        {"crawl_id": "newer", "completed": 100, "matches": 20, "total": 200},
+        {"crawl_id": "newest", "completed": 100, "matches": 10, "total": 200},
+    ]
+    assert yield_aware_order(crawls, summaries)[0] == "older"
+    assert _schedule_order(crawls, "yield-aware", summaries)[0] == "older"
 
 
 def test_filter_cli_rejects_invalid_threshold_before_touching_state():

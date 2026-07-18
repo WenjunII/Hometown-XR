@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from config import (
+    DATASET_SCHEMA_VERSION,
     DOMAIN_SHARE_WARNING,
     DOMAIN_STORY_CAP,
     OUTPUT_DIR,
@@ -35,6 +36,7 @@ from record_identity import (
     stable_record_id,
     story_fingerprint,
 )
+from story_reconstruction import PassageAssembler
 
 _SAFE_PARTITION = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -211,7 +213,48 @@ def _schemas():
             ("is_canonical", pa.bool_()),
         ]
     )
-    return stories, provenance
+    passages = pa.schema(
+        [
+            ("schema_version", pa.int16()),
+            ("passage_id", pa.string()),
+            ("record_ids", pa.list_(pa.string())),
+            ("story_ids", pa.list_(pa.string())),
+            ("crawl_id", pa.string()),
+            ("source_file", pa.string()),
+            ("run_id", pa.string()),
+            ("filter_signature", pa.string()),
+            ("url", pa.string()),
+            ("domain", pa.string()),
+            ("warc_date", pa.string()),
+            ("language", pa.string()),
+            ("language_confidence", pa.float32()),
+            ("document_id", pa.string()),
+            ("start_paragraph_index", pa.int32()),
+            ("end_paragraph_index", pa.int32()),
+            ("paragraph_count", pa.int16()),
+            ("paragraph", pa.string()),
+            ("context_before", pa.string()),
+            ("context_after", pa.string()),
+            ("matched_keywords", pa.list_(pa.string())),
+            ("semantic_score_max", pa.float32()),
+            ("semantic_score_mean", pa.float32()),
+            ("narrative_score_max", pa.int16()),
+            ("place_mentions", pa.list_(pa.string())),
+            ("year_mentions", pa.list_(pa.int16())),
+            ("decade_mentions", pa.list_(pa.string())),
+            ("time_expressions", pa.list_(pa.string())),
+            ("migration_routes", pa.list_(pa.string())),
+            ("capture_year", pa.int16()),
+            ("metadata_confidence", pa.float32()),
+            ("metadata_method", pa.string()),
+            ("content_category", pa.string()),
+            ("content_confidence", pa.float32()),
+            ("content_flags", pa.list_(pa.string())),
+            ("content_reasons", pa.list_(pa.string())),
+            ("curated_default", pa.bool_()),
+        ]
+    )
+    return stories, provenance, passages
 
 
 def export_parquet(
@@ -236,7 +279,7 @@ def export_parquet(
     staging = target.parent / f".{target.name}-staging-{uuid.uuid4().hex}"
     staging.mkdir(parents=True)
     backup = target.parent / f".{target.name}-backup-{uuid.uuid4().hex}"
-    story_schema, provenance_schema = _schemas()
+    story_schema, provenance_schema, passage_schema = _schemas()
     story_writer = _PartitionedWriter(
         staging / "stories",
         story_schema,
@@ -255,6 +298,13 @@ def export_parquet(
         ("crawl_id", "language"),
         batch_size,
     )
+    passage_writer = _PartitionedWriter(
+        staging / "passages",
+        passage_schema,
+        ("crawl_id", "language"),
+        batch_size,
+    )
+    passage_assembler = PassageAssembler(passage_writer.add)
     duplicates = {"exact": 0, "near": 0}
     duplicate_path = staging / "_duplicates.jsonl"
     diversity = DiversityTracker(domain_share_warning)
@@ -356,6 +406,7 @@ def export_parquet(
                             "curated_default": curated_default,
                         }
                         story_writer.add(story)
+                        passage_assembler.observe(story)
                         if curated_default:
                             curated_writer.add(story)
                         diversity.observe(story)
@@ -364,17 +415,25 @@ def export_parquet(
                         story_writer.buffered_rows
                         + provenance_writer.buffered_rows
                         + curated_writer.buffered_rows
+                        + passage_writer.buffered_rows
                         >= batch_size * 10
                     ):
                         largest = max(
-                            (story_writer, provenance_writer, curated_writer),
+                            (
+                                story_writer,
+                                provenance_writer,
+                                curated_writer,
+                                passage_writer,
+                            ),
                             key=lambda writer: writer.buffered_rows,
                         )
                         largest.flush_largest()
 
+        passage_assembler.flush()
         story_writer.flush_all()
         provenance_writer.flush_all()
         curated_writer.flush_all()
+        passage_writer.flush_all()
         (staging / "_dedupe.sqlite").unlink(missing_ok=True)
 
         parquet_files = sorted(staging.rglob("*.parquet"))
@@ -399,7 +458,7 @@ def export_parquet(
         )
         manifest = {
             "schema_version": OUTPUT_SCHEMA_VERSION,
-            "dataset_schema_version": 4,
+            "dataset_schema_version": DATASET_SCHEMA_VERSION,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "dedupe_mode": dedupe,
             "near_distance": near_distance if dedupe == "near" else None,
@@ -418,6 +477,10 @@ def export_parquet(
                 "curated": {
                     "rows": curated_writer.rows,
                     "partitions": dict(sorted(curated_writer.partition_rows.items())),
+                },
+                "passages": {
+                    "rows": passage_writer.rows,
+                    "partitions": dict(sorted(passage_writer.partition_rows.items())),
                 },
             },
             "quality": quality_report,

@@ -149,11 +149,16 @@ Check the shared sample balance and next human-review action with:
 
 ```powershell
 .\scripts\evaluation.ps1
+.\scripts\evaluation.ps1 -Action serve -OpenBrowser
+.\scripts\evaluation.ps1 -Action multilingual
 ```
 
 Representative rows keep a stable tuning/holdout split across machines. The
 local crawler also records low-rate pre-keyword shadow samples; checkpointing
 merges them into the shared replay without copying machine-local candidate files.
+The localhost workbench hides all model evidence for representative holdout
+rows. The multilingual report identifies languages that still need samples and
+human-labeled keyword misses.
 
 Review recent shared runs or compare both hardware profiles with:
 
@@ -165,10 +170,12 @@ python main.py metrics --compare-profiles
 Then resume with:
 
 ```powershell
-.\scripts\run.ps1 -Profile 3080 run --all
+.\scripts\run.ps1 -Profile 3080 run --all --strategy yield-aware --chunk-size 100
 ```
 
-Use profile `4090` on the other PC.
+Use profile `4090` on the other PC. Yield-aware mode re-ranks crawl chunks from
+smoothed historical matches per completed source while preserving exploration
+and a full rotation through ready crawls.
 
 `data/parquet/` is derived and remains local to each workstation. To rebuild it
 from the received checkpoint while safely dry-running the current filters, use:
@@ -180,6 +187,9 @@ from the received checkpoint while safely dry-running the current filters, use:
 The equivalent standalone command is `.\scripts\refresh-results.ps1`. Neither
 form reprocesses completed Common Crawl sources or replaces accepted JSONL
 output unless `refresh-results.ps1` is separately given `-ApplyRefilter`.
+The derived schema-5 dataset adds `passages/` with adjacent-story reconstruction
+and explainable place/time candidates; paragraph-level `stories/`, complete
+`provenance/`, and the curated view remain intact.
 
 ## After A Crash
 
@@ -204,8 +214,16 @@ The first retry command is a dry run. `-Apply` resets only the deterministic,
 bounded category batch; omit `-Category` only after reviewing the full report.
 The failure report separates transient Common Crawl pressure from worker,
 inference, and output failures. HTTP retries honor `Retry-After`, add jitter,
-and temporarily reduce parser concurrency after transient failures. A
-terminated process pool is rebuilt automatically up to three times.
+temporarily reduce parser concurrency, and open an escalating shared cooldown
+after 429/503 pressure. A terminated process pool is rebuilt automatically up
+to three times; healthy pools are periodically recycled after bounded work or a
+high-RAM worker. Attempt-exhausted sources are reported as quarantined and are
+left untouched until a bounded operator retry.
+
+The current filter contract includes native semantic anchors for all 20 keyword
+languages. Pulling this code does not rewrite historical output or reset the
+checkpoint. Before adopting the new signature, run a bounded isolated audit;
+only then choose evidence-backed stamping or a bounded selective recrawl.
 
 ## Conflict Rule
 

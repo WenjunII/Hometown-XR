@@ -4,11 +4,15 @@ import json
 import pytest
 
 import evaluation
+from annotation_workbench import _public_row
 from evaluation import (
     DecisionSampler,
     annotate,
+    annotation_queue,
     compact_replay_reservoir,
     evaluation_report,
+    label_annotation,
+    multilingual_recall_report,
     undo_annotation,
 )
 from matcher import MatchDecision
@@ -114,6 +118,40 @@ def test_audit_samples_are_tuning_only_and_zero_rate_disables_sampling(tmp_path)
     )
     assert disabled.observe([decision], FixedLanguageDetector()) == 0
     assert not disabled_path.exists()
+
+
+def test_minority_language_probe_adds_bounded_tuning_evidence(tmp_path, monkeypatch):
+    class FrenchDetector:
+        def detect(self, text):
+            assert text
+            return "fr", 0.99
+
+    monkeypatch.setattr(evaluation, "EVALUATION_MINORITY_PROBE_RATE", 1.0)
+    monkeypatch.setattr(evaluation, "EVALUATION_MINORITY_LANGUAGE_QUOTA", 1)
+    path = tmp_path / "minority.jsonl"
+    sampler = DecisionSampler(
+        path,
+        sample_rate=1e-12,
+        max_samples=10,
+        replay_path=tmp_path / "missing-replay.gz",
+    )
+    decisions = [
+        MatchDecision(
+            paragraph=_paragraph(index + 100),
+            matched_keywords=["patrie"],
+            semantic_score=0.8,
+            concept_match="home memory",
+            narrative_score=20,
+            accepted=True,
+        )
+        for index in range(2)
+    ]
+
+    assert sampler.observe(decisions, FrenchDetector()) == 1
+    row = json.loads(path.read_text(encoding="utf-8"))
+    assert row["sample_role"] == "tuning"
+    assert row["selection_reason"] == "minority_language"
+    assert row["sampling_probability"] is None
 
 
 def test_probability_sampling_upgrades_legacy_replay_but_not_benchmark(tmp_path):
@@ -307,3 +345,92 @@ def test_annotation_records_provenance_and_supports_undo(tmp_path):
     assert undone["restored_label"] is None
     assert "label" not in restored
     assert "annotator" not in restored
+
+
+def test_workbench_label_api_preserves_history_and_balances_queue(tmp_path):
+    path = tmp_path / "annotations.jsonl"
+    rows = [
+        {
+            "sample_id": "fr-one",
+            "language": "fr",
+            "paragraph": "Je me souviens de ma ville natale.",
+            "predicted_accept": False,
+            "evaluation_split": "tuning",
+        },
+        {
+            "sample_id": "en-one",
+            "language": "en",
+            "paragraph": "I remember my hometown.",
+            "predicted_accept": True,
+            "evaluation_split": "holdout",
+            "sample_role": "benchmark",
+        },
+    ]
+    path.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    queue = annotation_queue(path)
+    assert {row["language"] for row in queue} == {"en", "fr"}
+    result = label_annotation(
+        "fr-one",
+        "positive",
+        content_label="personal_prose",
+        notes="clear memory",
+        annotator="reviewer",
+        annotation_path=path,
+    )
+    assert result["labeled_total"] == 1
+    labeled = [
+        row
+        for row in map(json.loads, path.read_text(encoding="utf-8").splitlines())
+        if row["sample_id"] == "fr-one"
+    ][0]
+    assert labeled["label_history"][0]["label"] is None
+    assert labeled["notes"] == "clear memory"
+
+
+def test_multilingual_report_finds_anchor_gaps_and_keyword_misses(tmp_path):
+    annotations = tmp_path / "annotations.jsonl"
+    annotations.write_text(
+        json.dumps(
+            {
+                "sample_id": "miss",
+                "language": "en",
+                "paragraph": "A true story the keyword filter missed.",
+                "predicted_accept": False,
+                "rejection_reason": "keyword_prefilter",
+                "label": "positive",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = multilingual_recall_report(
+        annotations,
+        tmp_path / "candidates.jsonl",
+        tmp_path / "replay.jsonl.gz",
+        tmp_path / "report.json",
+    )
+    assert report["languages_missing_native_anchor"] == []
+    assert report["labeled_keyword_misses"] == 1
+    assert report["languages"]["en"]["keyword_miss_positives"] == 1
+
+
+def test_workbench_keeps_holdout_model_evidence_blind():
+    row = _public_row(
+        {
+            "sample_id": "holdout",
+            "sample_role": "benchmark",
+            "evaluation_split": "holdout",
+            "predicted_accept": True,
+            "semantic_score": 0.9,
+            "narrative_score": 12,
+            "predicted_content_category": "personal_prose",
+        }
+    )
+    assert row["blind"]
+    assert "predicted_accept" not in row
+    assert "semantic_score" not in row
+    assert "predicted_content_category" not in row

@@ -96,6 +96,15 @@ MULTILINGUAL_CONCEPT_ANCHORS = {
     "ar": "وُلدت ونشأت في بلدتي، وكلما عدت إليها عادت إليّ ذكريات الطفولة والعائلة.",
     "ru": "Я родился и вырос в родном городе, и каждое возвращение оживляет воспоминания о детстве и семье.",
     "hi": "मेरा जन्म और पालन-पोषण मेरे गृहनगर में हुआ; वहाँ लौटते ही बचपन और परिवार की यादें ताज़ा हो जाती हैं।",
+    "id": "Saya lahir dan dibesarkan di kampung halaman; setiap kali kembali, kenangan masa kecil dan keluarga muncul lagi.",
+    "it": "Sono nato e cresciuto nella mia città natale; ogni ritorno risveglia i ricordi dell'infanzia e della famiglia.",
+    "nl": "Ik ben geboren en opgegroeid in mijn geboortestad; telkens als ik terugkeer, komen herinneringen aan mijn jeugd en familie boven.",
+    "pl": "Urodziłem się i dorastałem w rodzinnym mieście; każdy powrót ożywia wspomnienia z dzieciństwa i rodziny.",
+    "sv": "Jag föddes och växte upp i min hemstad; varje gång jag återvänder väcks minnen av barndomen och familjen.",
+    "th": "ฉันเกิดและเติบโตในบ้านเกิด ทุกครั้งที่กลับไป ความทรงจำในวัยเด็กและครอบครัวก็หวนคืนมา",
+    "tr": "Memleketimde doğup büyüdüm; her döndüğümde çocukluk ve aile anılarım yeniden canlanır.",
+    "uk": "Я народився і виріс у рідному місті, і кожне повернення оживляє спогади про дитинство та родину.",
+    "vi": "Tôi sinh ra và lớn lên ở quê hương; mỗi lần trở về, ký ức tuổi thơ và gia đình lại hiện về.",
 }
 
 CONCEPT_ANCHOR_LANGUAGES = ["en"] * len(CONCEPT_ANCHORS) + list(

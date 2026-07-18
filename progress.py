@@ -18,6 +18,7 @@ from config import (
     LEASE_TIMEOUT_SECONDS,
     MAX_FILE_ATTEMPTS,
     RETRY_BASE_SECONDS,
+    RETRY_JITTER_FRACTION,
     RETRY_MAX_SECONDS,
 )
 from failure_analysis import classify_failure
@@ -583,9 +584,16 @@ class ProgressTracker:
                 return False
 
             attempt = max(1, int(row["attempt_count"] or 0))
-            delay = min(
-                RETRY_MAX_SECONDS,
-                retry_base_seconds * (2 ** max(0, attempt - 1)),
+            base_delay = retry_base_seconds * (2 ** max(0, attempt - 1))
+            digest = hashlib.sha256(
+                f"retry\0{file_path}\0{attempt}".encode("utf-8")
+            ).digest()
+            unit = int.from_bytes(digest[:8], "big") / float(2**64)
+            jitter = 1 + RETRY_JITTER_FRACTION * (2 * unit - 1)
+            delay = (
+                0
+                if base_delay <= 0
+                else min(RETRY_MAX_SECONDS, max(1, round(base_delay * jitter)))
             )
             now = _utc_now()
             next_retry = (now + timedelta(seconds=delay)).isoformat()
@@ -705,6 +713,7 @@ class ProgressTracker:
             "failed": len(rows),
             "retryable_now": retryable,
             "attempts_exhausted": exhausted,
+            "quarantined_sources": exhausted,
             "crawl_id": crawl_id,
             "categories": {
                 key: categories[key]

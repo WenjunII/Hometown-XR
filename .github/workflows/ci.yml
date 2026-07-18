@@ -37,6 +37,8 @@ jobs:
           python main.py audit --help
           python main.py evaluation --help
           python main.py evaluation annotate --help
+          python main.py evaluation serve --help
+          python main.py evaluation multilingual
           python main.py benchmark --help
           python main.py metrics --help
           python main.py retry --help

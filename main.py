@@ -124,11 +124,19 @@ def process_crawl(
     return completed, matches, target
 
 
-def _schedule_order(crawl_ids: list[str], strategy: str) -> list[str]:
+def _schedule_order(
+    crawl_ids: list[str],
+    strategy: str,
+    summaries: list[dict] | None = None,
+) -> list[str]:
     if strategy == "oldest":
         return list(crawl_ids)
     if strategy == "newest":
         return list(reversed(crawl_ids))
+    if strategy == "yield-aware":
+        from scheduling import yield_aware_order
+
+        return yield_aware_order(crawl_ids, summaries or [])
     if strategy != "round-robin":
         raise ValueError(f"unknown scheduling strategy: {strategy}")
     ordered = []
@@ -199,7 +207,13 @@ def run(
                 metrics,
                 shutdown_event=_shutdown_event,
             ) as pipeline:
-                active = _schedule_order(crawl_ids, effective_strategy)
+                tracker = ProgressTracker()
+                active = _schedule_order(
+                    crawl_ids,
+                    effective_strategy,
+                    tracker.get_per_crawl_summary(),
+                )
+                chunked = effective_strategy in {"round-robin", "yield-aware"}
                 while active and not _shutdown_event.is_set():
                     next_round = []
                     for crawl_id in active:
@@ -209,7 +223,7 @@ def run(
                         if remaining is not None and remaining <= 0:
                             break
                         per_crawl_limit = remaining
-                        if effective_strategy == "round-robin":
+                        if chunked:
                             per_crawl_limit = min(chunk_size, remaining or chunk_size)
                         crawls_attempted += 1
                         files, matches, scheduled = process_crawl(
@@ -221,13 +235,17 @@ def run(
                         total_files += files
                         total_matches += matches
                         sources_scheduled += scheduled
-                        if effective_strategy == "round-robin" and scheduled > 0:
+                        if chunked and scheduled > 0:
                             next_round.append(crawl_id)
-                    if effective_strategy != "round-robin" or (
+                    if not chunked or (
                         limit is not None and sources_scheduled >= limit
                     ):
                         break
-                    active = next_round
+                    active = _schedule_order(
+                        next_round,
+                        effective_strategy,
+                        tracker.get_per_crawl_summary(),
+                    )
 
             logger.info("=" * 70)
             logger.info("Crawl chunks attempted: %s", crawls_attempted)
@@ -473,6 +491,7 @@ def _evaluation_command(args) -> None:
         compact_replay_reservoir,
         evaluation_report,
         evaluation_status,
+        multilingual_recall_report,
         undo_annotation,
     )
 
@@ -504,6 +523,16 @@ def _evaluation_command(args) -> None:
         print(json.dumps(compact_replay_reservoir(), indent=2))
     elif args.evaluation_command == "undo":
         print(json.dumps(undo_annotation(sample_id=args.sample_id), indent=2))
+    elif args.evaluation_command == "multilingual":
+        print(json.dumps(multilingual_recall_report(), ensure_ascii=False, indent=2))
+    elif args.evaluation_command == "serve":
+        from annotation_workbench import serve_annotation_workbench
+
+        serve_annotation_workbench(
+            host=args.host,
+            port=args.port,
+            open_browser=args.open_browser,
+        )
 
 
 def _audit_command(args) -> None:
@@ -560,7 +589,7 @@ def main() -> None:
     run_parser.add_argument("--limit", type=int)
     run_parser.add_argument(
         "--strategy",
-        choices=["round-robin", "newest", "oldest"],
+        choices=["round-robin", "yield-aware", "newest", "oldest"],
         default="round-robin",
     )
     run_parser.add_argument("--chunk-size", type=int, default=100)
@@ -689,6 +718,11 @@ def main() -> None:
     evaluation_subparsers.add_parser("report")
     evaluation_subparsers.add_parser("status")
     evaluation_subparsers.add_parser("replay")
+    evaluation_subparsers.add_parser("multilingual")
+    serve_parser = evaluation_subparsers.add_parser("serve")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=8765)
+    serve_parser.add_argument("--open-browser", action="store_true")
     undo_parser = evaluation_subparsers.add_parser("undo")
     undo_parser.add_argument("--sample-id")
 
@@ -871,6 +905,9 @@ def main() -> None:
     elif args.command == "evaluation":
         if getattr(args, "limit", None) is not None and args.limit <= 0:
             parser.error("--limit must be positive")
+        port = getattr(args, "port", None)
+        if port is not None and not 1 <= port <= 65535:
+            parser.error("--port must be between 1 and 65535")
         _evaluation_command(args)
     elif args.command == "audit":
         if not 1 <= args.per_crawl <= AUDIT_MAX_PER_CRAWL:

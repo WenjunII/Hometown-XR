@@ -87,9 +87,18 @@ def _write_wet(path):
 
 
 def test_source_throttle_reduces_on_503_and_recovers_gradually():
-    throttle = _AdaptiveSourceThrottle(4, recovery_successes=2)
+    now = [100.0]
+    throttle = _AdaptiveSourceThrottle(
+        4,
+        recovery_successes=2,
+        circuit_base_seconds=30,
+        clock=lambda: now[0],
+    )
     assert throttle.available_slots(0) == 4
     assert throttle.observe("failed", "HTTP 503 service unavailable") == (4, 2)
+    assert throttle.cooldown_remaining() == 30
+    assert throttle.available_slots(1) == 0
+    now[0] += 30
     assert throttle.available_slots(1) == 1
     assert throttle.observe("completed") is None
     assert throttle.observe("completed") == (2, 3)
