@@ -14,7 +14,19 @@ build/
 
 # Machine-local settings and logs
 .env
-.env.local
+.env.*
+!.env.example
+credentials/
+credentials.*
+secrets/
+secrets.*
+*.pem
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+service-account*.json
+service_account*.json
 *.log
 
 # SQLite runtime sidecars (never sync a live database)

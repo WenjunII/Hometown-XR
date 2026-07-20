@@ -7,10 +7,11 @@ import heapq
 import logging
 import sqlite3
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 from config import (
     DB_ARCHIVE_PATH,
@@ -63,9 +64,19 @@ class ProgressTracker:
         conn.execute("PRAGMA busy_timeout = 30000")
         return conn
 
+    @contextmanager
+    def _managed_conn(self) -> Iterator[sqlite3.Connection]:
+        """Commit or roll back a transaction, then release its Windows file handle."""
+        conn = self._get_conn()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _init_db(self) -> None:
         """Create the current schema and migrate older checkpoints in place."""
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS processing_state (
@@ -126,7 +137,7 @@ class ProgressTracker:
 
     def initialize_paths(self, file_paths: list[str], crawl_id: str = "") -> None:
         """Add newly discovered source paths without changing existing state."""
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             conn.executemany(
                 "INSERT OR IGNORE INTO processing_state (file_path, crawl_id) VALUES (?, ?)",
                 [(path, crawl_id) for path in file_paths],
@@ -140,7 +151,7 @@ class ProgressTracker:
     def recover_stale_leases(self, max_age_seconds: int = LEASE_TIMEOUT_SECONDS) -> int:
         """Release claims whose parent process stopped sending heartbeats."""
         cutoff = (_utc_now() - timedelta(seconds=max_age_seconds)).isoformat()
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             cursor = conn.execute(
                 """
                 UPDATE processing_state
@@ -231,7 +242,7 @@ class ProgressTracker:
             return 0
         now = _utc_now().isoformat()
         updated = 0
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             for claim in claim_list:
                 cursor = conn.execute(
                     """
@@ -249,7 +260,7 @@ class ProgressTracker:
         if not paths:
             return {}
         states = {}
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             for path in paths:
                 row = conn.execute(
                     "SELECT status, records_processed, matches_found, error_message "
@@ -267,7 +278,7 @@ class ProgressTracker:
 
     def release_claim(self, claim: ClaimedFile) -> bool:
         """Return an interrupted or cancelled claim to pending work."""
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             cursor = conn.execute(
                 """
                 UPDATE processing_state
@@ -311,7 +322,7 @@ class ProgressTracker:
             where += " AND status = 'processing' AND lease_id = ?"
             params.append(lease_id)
 
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             cursor = conn.execute(
                 f"""
                 UPDATE processing_state
@@ -333,7 +344,7 @@ class ProgressTracker:
 
     def get_filter_signature_summary(self, current_signature: str) -> dict[str, int | str]:
         """Classify completed work without changing any checkpoint state."""
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             row = conn.execute(
                 """
                 SELECT
@@ -380,7 +391,7 @@ class ProgressTracker:
             clauses.append("COALESCE(filter_signature, '') != ?")
             params.append(current_signature)
 
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             rows = conn.execute(
                 "SELECT file_path, crawl_id, matches_found, completed_at, filter_signature "
                 "FROM processing_state WHERE "
@@ -457,7 +468,7 @@ class ProgressTracker:
             raise ValueError("audit id and report hash are required")
         adopted_at = _utc_now().isoformat()
         total = 0
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             for crawl_id in selected:
                 cursor = conn.execute(
                     """
@@ -493,7 +504,7 @@ class ProgressTracker:
     def get_signature_adoptions(self, limit: int = 20) -> list[dict]:
         if limit <= 0:
             return []
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             rows = conn.execute(
                 """
                 SELECT adopted_at, filter_signature, crawl_id, audit_id,
@@ -534,7 +545,7 @@ class ProgressTracker:
                 return 0
             query += " LIMIT ?"
             params.append(limit)
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             paths = [row[0] for row in conn.execute(query, params).fetchall()]
             if not paths:
                 return 0
@@ -632,7 +643,7 @@ class ProgressTracker:
         if crawl_id is not None:
             where.append("crawl_id = ?")
             params.append(crawl_id)
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             rows = conn.execute(
                 "SELECT file_path, error_message FROM processing_state WHERE "
                 + " AND ".join(where)
@@ -676,7 +687,7 @@ class ProgressTracker:
         if crawl_id is not None:
             clauses.append("crawl_id = ?")
             params.append(crawl_id)
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             rows = conn.execute(
                 "SELECT file_path, crawl_id, error_message, attempt_count, next_retry_at "
                 "FROM processing_state WHERE "
@@ -733,7 +744,7 @@ class ProgressTracker:
             scope = "WHERE crawl_id = ?"
             params.append(crawl_id)
 
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             row = conn.execute(
                 f"""
                 SELECT
@@ -775,7 +786,7 @@ class ProgressTracker:
         }
 
     def get_per_crawl_summary(self) -> list[dict[str, int | str]]:
-        with self._get_conn() as conn:
+        with self._managed_conn() as conn:
             rows = conn.execute(
                 """
                 SELECT crawl_id,
@@ -876,7 +887,7 @@ class ProgressTracker:
         finally:
             conn.close()
 
-        with self._get_conn() as check:
+        with self._managed_conn() as check:
             after_pages = int(check.execute("PRAGMA page_count").fetchone()[0])
             after_free_pages = int(check.execute("PRAGMA freelist_count").fetchone()[0])
             rows = int(check.execute("SELECT COUNT(*) FROM processing_state").fetchone()[0])

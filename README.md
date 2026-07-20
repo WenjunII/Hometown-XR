@@ -28,12 +28,21 @@ cannot cross a model change. `data/cache/` remains local to each workstation.
 
 ## Workstation Safety
 
-The RTX 3080 and RTX 4090 PCs share one Git checkpoint. Run the crawler on
-only one PC at a time.
+The RTX 3080, RTX 4090, and RTX 5090 PCs share one Git checkpoint. Run the
+crawler on only one PC at a time.
 
 Git LFS stores `data/checkpoints/progress.db.gz`, a deterministic compressed
 checkpoint. `data/progress.db` is restored locally by setup/handoff and is
 never copied while live.
+
+The Git repository contains all durable state needed to recreate or resume the
+project on another PC: source, tests, documentation, the compressed database
+checkpoint, committed output and manifests, exports, bounded evaluation replay,
+annotations, and run history. Virtual environments, downloaded models, caches,
+live SQLite files, metrics, derived Parquet datasets, hardware overrides, and
+credential-like files remain local because they are unsafe to copy or can be
+recreated deterministically. `scripts\checkpoint.ps1` refuses to commit common
+credential filenames even if a local ignore rule is accidentally removed.
 
 Before switching machines:
 
@@ -54,7 +63,8 @@ The normal 3080 receive/run/send cycle is:
 .\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"
 ```
 
-Use `4090` in the first two commands on the other PC. The receive command
+Use `4090` or `5090` in the first two commands on the corresponding PC. The
+receive command
 requires a clean worktree, performs a fast-forward-only Git pull plus Git LFS
 pull, then runs `doctor`, `status`, and `verify-output`. The send command works
 only from `main`, checks that `origin/main` is not ahead before checkpointing,
@@ -100,10 +110,10 @@ visible only after an entire source is successfully parsed and filtered.
 Requirements:
 
 - Windows 10 or 11
-- Python 3.10
+- Python 3.10, 3.11, or 3.12
 - Git and Git LFS
-- NVIDIA driver compatible with CUDA 12.1
-- RTX 3080-class or RTX 4090 GPU
+- NVIDIA driver compatible with the profile's PyTorch CUDA runtime
+- RTX 3080, RTX 4090, or RTX 5090 GPU
 
 First-time setup on this RTX 3080 PC:
 
@@ -114,9 +124,11 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1 -Profile 3080
 ```
 
-Use `-Profile 4090` on the other PC. Setup installs the exact versions in
-`requirements-lock.txt`, including the CUDA 12.1 PyTorch wheel. Add `-Tune` to
-run a quick local hardware benchmark or `-Dev` to install the test toolchain.
+Use `-Profile 4090` or `-Profile 5090` on the corresponding PC. The 3080 and
+4090 retain the exact CUDA 12.1 PyTorch environment in `requirements-lock.txt`.
+The Blackwell-generation 5090 uses `requirements-lock-5090.txt`, which pins
+stable PyTorch 2.12.1 with its CUDA 13.0 runtime. Add `-Tune` to run a quick
+local hardware benchmark or `-Dev` to install the test toolchain.
 
 Verify the environment and checkpoint:
 
@@ -137,8 +149,8 @@ Resume every available crawl:
 .\scripts\run.ps1 -Profile 3080 run --all
 ```
 
-The old `4090\main.py` command remains a compatibility launcher. It invokes
-the same root implementation and shared `data/` checkpoint.
+The `4090\main.py` and `5090\main.py` commands are compatibility launchers.
+They invoke the same root implementation and shared `data/` checkpoint.
 
 ## Hardware Profiles
 
@@ -148,6 +160,7 @@ These are the conservative settings tracked in Git:
 | --- | ---: | ---: | ---: | ---: | --- |
 | `3080` | 7 | 100 | 800 | 128 | FP32 |
 | `4090` | 7 | 150 | 1600 | 256 | FP32 |
+| `5090` | 7 | 200 | 2400 | 512 | FP32 |
 
 `candidate_batch_size` controls worker-to-parent messages.
 `inference_batch_size` combines candidates from multiple sources before one
@@ -165,7 +178,7 @@ maximum score drift and concept agreement on a fixed audit set, and selects
 FP16 only when drift stays within the safety bound and throughput improves by
 at least five percent. Results are written to
 `data/hardware-profile.local.json`; that file is intentionally not synchronized
-because the 3080 and 4090 should keep their own measured settings.
+because all three workstations should keep their own measured settings.
 
 Worker-count tuning uses the same completed Common Crawl sources for every
 trial, with cache and evaluation sampling disabled and all output isolated:
@@ -217,7 +230,7 @@ subset of source files also contributes a small reservoir of paragraphs rejected
 before the keyword gate. Those shadow rows make missed-keyword recall visible
 without sending the full corpus through the GPU. At checkpoint time, local
 candidates merge into the bounded `data/evaluation/replay.jsonl.gz` reservoir
-shared by both PCs. Replay compaction preserves representative rows and reserves
+shared by all PCs. Replay compaction preserves representative rows and reserves
 space for active-learning rows. Human labels are never synthesized.
 An additional bounded two-percent probe retains up to 20 tuning examples per
 non-English detected language, improving minority-language review coverage
@@ -271,7 +284,7 @@ The underlying Python CLI remains available directly:
 | `python main.py status` | Show checkpoint progress |
 | `python main.py metrics` | Show concise latest rates, funnel, failures, resources, and ETA |
 | `python main.py metrics --history --limit 20` | Show compact recent run history |
-| `python main.py metrics --compare-profiles` | Compare aggregate 3080 and 4090 throughput/resources |
+| `python main.py metrics --compare-profiles` | Compare aggregate workstation throughput/resources |
 | `python main.py doctor --profile 3080` | Check Python, PyTorch, CUDA, and profile |
 | `python main.py benchmark --profile 3080` | Benchmark and tune this PC |
 | `python main.py benchmark --profile 3080 --real --sources 5 --worker-count 1 --worker-count 7` | Benchmark identical real sources without changing settings |
@@ -473,8 +486,8 @@ crawls provide the low-rate representative samples used for end-to-end metrics.
 The audit launcher accepts the same deliberate runtime overrides as a crawl:
 `-Workers`, `-CandidateBatchSize`, `-InferenceBatchSize`,
 `-EncodingBatchSize`, `-Precision`, `-NoAdaptiveBatching`, and `-NoCache`.
-Normally, leave them unset so `-Profile 3080` uses the tracked seven-worker
-3080 defaults and `-Profile 4090` uses the 4090 profile.
+Normally, leave them unset so each of `-Profile 3080`, `-Profile 4090`, and
+`-Profile 5090` uses its tracked defaults.
 
 Use filter signatures to make that audit selective:
 
@@ -612,7 +625,8 @@ quality.py              boilerplate, template, domain, and diversity signals
 scheduling.py           coverage-preserving yield-aware crawl ranking
 signatures.py           filter contracts, run IDs, and Git provenance
 refilter_output.py      transactional schema/filter migration
-4090/                   compatibility launchers only
+4090/                   RTX 4090 compatibility launchers
+5090/                   RTX 5090 compatibility launchers
 scripts/                setup, run, audit, evaluation, test, and handoff commands
 tests/                  unit, regression, and integration tests
 ```

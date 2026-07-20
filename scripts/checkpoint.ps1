@@ -9,6 +9,46 @@ $Root = Split-Path -Parent $PSScriptRoot
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 $Lock = Join-Path $Root "data\.crawler.lock"
 
+function Test-SensitivePath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $Normalized = $Path.Replace("\", "/")
+    $Leaf = [IO.Path]::GetFileName($Normalized)
+    if ($Leaf -eq ".env.example") {
+        return $false
+    }
+    return (
+        $Leaf -eq ".env" -or
+        $Leaf -like ".env.*" -or
+        $Normalized -match "(^|/)(credentials?|secrets?)([._/-]|$)" -or
+        $Normalized -match "\.(pem|p12|pfx)$" -or
+        $Normalized -match "(^|/)(id_rsa|id_ed25519)([^/]*$)" -or
+        $Normalized -match "(^|/)service[-_]?account[^/]*\.json$"
+    )
+}
+
+function Assert-NoSensitiveStagedPaths {
+    $StagedPaths = @(git diff --cached --name-only --diff-filter=ACMR)
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect staged paths for credentials."
+    }
+    $SensitivePaths = @($StagedPaths | Where-Object { Test-SensitivePath $_ })
+    if ($SensitivePaths.Count -eq 0) {
+        return
+    }
+    foreach ($SensitivePath in $SensitivePaths) {
+        git restore --staged -- $SensitivePath
+        if ($LASTEXITCODE -ne 0) {
+            throw "A credential-like path was staged and could not be removed: $SensitivePath"
+        }
+    }
+    throw (
+        "Refusing to checkpoint credential-like paths: " +
+        ($SensitivePaths -join ", ") +
+        ". They were removed from the staging area and remain local."
+    )
+}
+
 function Update-OriginMain {
     git fetch --prune origin
     if ($LASTEXITCODE -ne 0) {
@@ -57,6 +97,7 @@ try {
     }
 
     git add -A
+    Assert-NoSensitiveStagedPaths
     git diff --cached --quiet
     $DiffExit = $LASTEXITCODE
     if ($DiffExit -eq 1) {
