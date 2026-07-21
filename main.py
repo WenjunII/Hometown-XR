@@ -24,6 +24,7 @@ from config import (
     HARDWARE_PROFILES,
     LANG_DETECTION_THRESHOLD,
     LEASE_TIMEOUT_SECONDS,
+    MODEL_BASELINE_PATH,
     OUTPUT_DIR,
     PARQUET_DIR,
     SEMANTIC_THRESHOLD,
@@ -373,7 +374,19 @@ def doctor(profile_name: str) -> int:
             gpu_name = ""
             capability = (0, 0)
 
-        if profile.name == "5090":
+        if profile.name in {"3080", "4090"}:
+            if not cuda_available:
+                errors.append(f"The {profile.name} profile requires CUDA-enabled PyTorch.")
+            elif profile.name not in gpu_name:
+                errors.append(
+                    f"The {profile.name} profile selected a different GPU: {gpu_name}."
+                )
+            if cuda_runtime != "12.1":
+                errors.append(
+                    f"The {profile.name} profile requires the tracked CUDA 12.1 runtime; "
+                    f"found {cuda_runtime or 'none'}."
+                )
+        else:
             if not cuda_available:
                 errors.append("The 5090 profile requires a CUDA-enabled PyTorch build.")
             else:
@@ -523,6 +536,7 @@ def _evaluation_command(args) -> None:
         annotate,
         build_annotation_sample,
         compact_replay_reservoir,
+        evaluation_plan,
         evaluation_report,
         evaluation_status,
         multilingual_recall_report,
@@ -553,6 +567,8 @@ def _evaluation_command(args) -> None:
         print(json.dumps(evaluation_report(), indent=2))
     elif args.evaluation_command == "status":
         print(json.dumps(evaluation_status(), indent=2))
+    elif args.evaluation_command == "plan":
+        print(json.dumps(evaluation_plan(), indent=2))
     elif args.evaluation_command == "replay":
         print(json.dumps(compact_replay_reservoir(), indent=2))
     elif args.evaluation_command == "undo":
@@ -644,6 +660,14 @@ def main() -> None:
     run_parser.add_argument("--no-cache", action="store_true")
 
     subparsers.add_parser("status", help="show processing progress")
+    health_parser = subparsers.add_parser(
+        "health", help="show consolidated workstation and project readiness"
+    )
+    health_parser.add_argument(
+        "--profile", choices=["auto", *HARDWARE_PROFILES], default="auto"
+    )
+    health_parser.add_argument("--full", action="store_true")
+    health_parser.add_argument("--strict", action="store_true")
     metrics_parser = subparsers.add_parser(
         "metrics", help="show current or historical operational metrics"
     )
@@ -728,6 +752,29 @@ def main() -> None:
     benchmark_parser.add_argument("--worker-count", type=int, action="append")
     benchmark_parser.add_argument("--apply", action="store_true")
 
+    model_parser = subparsers.add_parser(
+        "model-validation",
+        help="capture or compare semantic-model regression snapshots",
+    )
+    model_subparsers = model_parser.add_subparsers(
+        dest="model_validation_command",
+        required=True,
+    )
+    model_capture = model_subparsers.add_parser("capture")
+    model_capture.add_argument("--annotations")
+    model_capture.add_argument("--output", default=str(MODEL_BASELINE_PATH))
+    model_capture.add_argument(
+        "--profile", choices=["auto", *HARDWARE_PROFILES], default="auto"
+    )
+    model_capture.add_argument("--limit", type=int)
+    model_compare = model_subparsers.add_parser("compare")
+    model_compare.add_argument("--baseline", default=str(MODEL_BASELINE_PATH))
+    model_compare.add_argument("--candidate", required=True)
+    model_compare.add_argument("--output")
+    model_compare.add_argument("--max-score-drift", type=float, default=0.005)
+    model_compare.add_argument("--minimum-concept-agreement", type=float, default=0.99)
+    model_compare.add_argument("--minimum-threshold-agreement", type=float, default=1.0)
+
     parquet_parser = subparsers.add_parser("parquet", help="export partitioned Parquet")
     parquet_parser.add_argument("--dedupe", choices=["none", "exact", "near"], default="exact")
     parquet_parser.add_argument("--near-distance", type=int, default=3)
@@ -751,6 +798,7 @@ def main() -> None:
     annotate_parser.add_argument("--quick", action="store_true")
     evaluation_subparsers.add_parser("report")
     evaluation_subparsers.add_parser("status")
+    evaluation_subparsers.add_parser("plan")
     evaluation_subparsers.add_parser("replay")
     evaluation_subparsers.add_parser("multilingual")
     serve_parser = evaluation_subparsers.add_parser("serve")
@@ -826,6 +874,13 @@ def main() -> None:
         run(crawl_ids, args.limit, settings, args.strategy, args.chunk_size)
     elif args.command == "status":
         show_status()
+    elif args.command == "health":
+        from project_health import collect_project_health
+
+        result = collect_project_health(args.profile, full=args.full)
+        print(json.dumps(result, indent=2))
+        if args.strict and result["status"] == "fail":
+            raise SystemExit(1)
     elif args.command == "metrics":
         if args.limit <= 0:
             parser.error("--limit must be positive")
@@ -917,6 +972,42 @@ def main() -> None:
             print(
                 json.dumps(result, indent=2)
             )
+    elif args.command == "model-validation":
+        from model_regression import capture_model_snapshot, compare_model_snapshots
+
+        if args.model_validation_command == "capture":
+            if args.limit is not None and args.limit <= 0:
+                parser.error("--limit must be positive")
+            keyword_arguments = {
+                "output_path": args.output,
+                "profile_name": args.profile,
+                "limit": args.limit,
+            }
+            if args.annotations:
+                keyword_arguments["annotation_path"] = args.annotations
+            with CrawlerRunLock("model-validation"):
+                result = capture_model_snapshot(**keyword_arguments)
+            result = {key: value for key, value in result.items() if key != "samples"}
+        else:
+            if args.max_score_drift < 0:
+                parser.error("--max-score-drift cannot be negative")
+            for name in (
+                "minimum_concept_agreement",
+                "minimum_threshold_agreement",
+            ):
+                if not 0 <= getattr(args, name) <= 1:
+                    parser.error(f"--{name.replace('_', '-')} must be between 0 and 1")
+            result = compare_model_snapshots(
+                args.baseline,
+                args.candidate,
+                output_path=args.output,
+                max_score_drift=args.max_score_drift,
+                minimum_concept_agreement=args.minimum_concept_agreement,
+                minimum_threshold_agreement=args.minimum_threshold_agreement,
+            )
+        print(json.dumps(result, indent=2))
+        if args.model_validation_command == "compare" and not result["safe"]:
+            raise SystemExit(1)
     elif args.command == "parquet":
         from parquet_export import export_parquet
 

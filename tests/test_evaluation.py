@@ -10,6 +10,7 @@ from evaluation import (
     annotate,
     annotation_queue,
     compact_replay_reservoir,
+    evaluation_plan,
     evaluation_report,
     label_annotation,
     multilingual_recall_report,
@@ -434,3 +435,31 @@ def test_workbench_keeps_holdout_model_evidence_blind():
     assert "predicted_accept" not in row
     assert "semantic_score" not in row
     assert "predicted_content_category" not in row
+
+
+def test_evaluation_plan_balances_human_work_without_labeling(tmp_path, monkeypatch):
+    monkeypatch.setattr(evaluation, "EVALUATION_MIN_BASELINE_LABELS", 4)
+    monkeypatch.setattr(evaluation, "EVALUATION_MIN_HOLDOUT_LABELS", 2)
+    path = tmp_path / "annotations.jsonl"
+    rows = [
+        {
+            "sample_id": f"sample-{index}",
+            "paragraph": f"paragraph {index}",
+            "predicted_accept": bool(index % 2),
+            "evaluation_split": "holdout" if index < 2 else "tuning",
+            "sample_role": "benchmark",
+        }
+        for index in range(4)
+    ]
+    path.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    result = evaluation_plan(path)
+
+    assert result["remaining_to_target"] == 4
+    assert sum(step["planned"] for step in result["steps"]) == 4
+    assert result["requires_human_judgment"]
+    assert all("evaluation annotate" in step["command"] for step in result["steps"])
+    assert all("label" not in row for row in map(json.loads, path.read_text().splitlines()))

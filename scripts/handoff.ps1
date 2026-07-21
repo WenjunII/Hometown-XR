@@ -63,17 +63,9 @@ try {
         }
 
         if (-not $SkipVerify) {
-            & $Python (Join-Path $Root "main.py") doctor --profile $Profile
+            & $Python (Join-Path $Root "main.py") health --profile $Profile --full --strict
             if ($LASTEXITCODE -ne 0) {
-                throw "Environment verification failed with exit code $LASTEXITCODE."
-            }
-            & $Python (Join-Path $Root "main.py") status
-            if ($LASTEXITCODE -ne 0) {
-                throw "Checkpoint status failed with exit code $LASTEXITCODE."
-            }
-            & $Python (Join-Path $Root "main.py") verify-output
-            if ($LASTEXITCODE -ne 0) {
-                throw "Output verification failed with exit code $LASTEXITCODE."
+                throw "Project health verification failed with exit code $LASTEXITCODE."
             }
         }
 

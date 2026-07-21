@@ -10,6 +10,9 @@ Git and Git LFS synchronize source code, tests, documentation,
 bounded evaluation replay reservoir, run history, and Markdown exports.
 Together, those files are the complete durable project state required to resume
 on another workstation.
+The tracked evaluation state also includes the semantic model baseline; model
+candidate and comparison reports stay local to the workstation that generated
+them.
 
 The following remain local to each PC:
 
@@ -20,6 +23,9 @@ The following remain local to each PC:
 - `data/metrics/`
 - `data/parquet/`
 - `data/audits/`
+- `data/evaluation/model-candidate*.json`
+- `data/evaluation/model-comparison*.json`
+- `data/dependency-audit.local.json`
 - `data/progress.db` (restored working copy)
 - uncheckpointed live candidate evaluation samples
 - `.env*`, credential files, private keys, and service-account files
@@ -62,6 +68,12 @@ Optionally tune each machine once:
 
 The setup command's `-Tune` switch runs a shorter benchmark instead. Both forms
 write only the ignored local hardware override for the current PC.
+
+Confirm the complete local state after setup:
+
+```powershell
+.\scripts\health.ps1 -Profile 3080 -Full -Strict
+```
 
 To measure parser concurrency against real data, compare identical completed
 sources without changing the override:
@@ -126,7 +138,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 The receive script checks every Git command, permits only a fast-forward pull,
 refuses to overwrite a working database that differs from its current archive,
 pulls Git LFS objects, atomically restores and validates `data/progress.db`,
-and then runs `doctor`, `status`, and `verify-output`. `-SkipVerify` skips the
+and then runs `health --full --strict`, covering the runtime profile, Git state,
+database digest, active leases, dependency locks, filter/evaluation readiness,
+hardware metrics, model baseline, and output checks. `-SkipVerify` skips those
 diagnostics but still restores the checkpoint, so a virtual environment is
 required. Rerun `scripts\setup.ps1` whenever dependency lock files changed.
 
@@ -170,6 +184,7 @@ Check the shared sample balance and next human-review action with:
 
 ```powershell
 .\scripts\evaluation.ps1
+.\scripts\evaluation.ps1 -Action plan
 .\scripts\evaluation.ps1 -Action serve -OpenBrowser
 .\scripts\evaluation.ps1 -Action multilingual
 ```
@@ -180,6 +195,20 @@ merges them into the shared replay without copying machine-local candidate files
 The localhost workbench hides all model evidence for representative holdout
 rows. The multilingual report identifies languages that still need samples and
 human-labeled keyword misses.
+
+When a dependency, CUDA, precision, or model change is proposed, capture a
+candidate on that workstation and compare it with the tracked baseline:
+
+```powershell
+.\scripts\model-validation.ps1 -Action capture -Profile 4090
+.\scripts\model-validation.ps1 -Action compare -Profile 4090
+.\scripts\dependency-audit.ps1
+```
+
+Use the matching profile on each PC. Candidate and comparison files are ignored;
+the baseline and dated dependency policy are shared. A model-stack migration is
+not complete until comparisons pass on the 3080, 4090, and 5090 and the
+human-labeled evaluation minimums are met.
 
 Review recent shared runs or compare all hardware profiles with:
 
