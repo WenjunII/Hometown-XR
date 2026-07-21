@@ -1,13 +1,15 @@
 # Workstation Handoff Guide
 
-Use this procedure to move Hometown XR between the RTX 3080 and RTX 4090 PCs.
-Never run the crawler on both PCs at the same time.
+Use this procedure to move Hometown XR among the RTX 3080, RTX 4090, and
+RTX 5090 PCs. Never run the crawler on more than one PC at a time.
 
 ## Shared And Local State
 
 Git and Git LFS synchronize source code, tests, documentation,
 `data/checkpoints/progress.db.gz`, committed JSONL output, manifests, the
 bounded evaluation replay reservoir, run history, and Markdown exports.
+Together, those files are the complete durable project state required to resume
+on another workstation.
 
 The following remain local to each PC:
 
@@ -20,9 +22,24 @@ The following remain local to each PC:
 - `data/audits/`
 - `data/progress.db` (restored working copy)
 - uncheckpointed live candidate evaluation samples
+- `.env*`, credential files, private keys, and service-account files
 
-This division lets both PCs use one checkpoint while retaining their own GPU
+This division lets all PCs use one checkpoint while retaining their own GPU
 tuning and reproducible derived data.
+
+The checkpoint script stages the complete tracked project, then scans staged
+filenames and file contents before it creates a commit. Files with findings are
+unstaged, remain local, and stop the checkpoint. Keep secrets outside the
+repository even when they are already covered by `.gitignore`.
+
+Run a read-only scan before any handoff when local configuration changed:
+
+```powershell
+.\scripts\security-check.ps1
+```
+
+The default covers tracked and non-ignored worktree files. The scanner reports
+only paths, line numbers, and rule names; it never prints detected values.
 
 ## First-Time Setup
 
@@ -35,7 +52,9 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup.ps1 -Profile 3080 -Tune
 ```
 
-Use `-Profile 4090` on the other PC. Optionally tune each machine once:
+Use `-Profile 4090` or `-Profile 5090` on the corresponding PC. The 5090 setup
+selects the Blackwell-compatible CUDA 13.0 PyTorch lock automatically.
+Optionally tune each machine once:
 
 ```powershell
 .\scripts\benchmark.ps1 -Profile 3080
@@ -52,7 +71,7 @@ sources without changing the override:
 ```
 
 Only add `-Apply` when all trials complete and report the same normalized output
-digest. The tracked defaults remain seven workers on both PCs; any applied
+digest. The tracked defaults remain seven workers on all PCs; any applied
 override stays local to the machine that measured it.
 
 ## Send A Checkpoint
@@ -74,10 +93,12 @@ push in one command:
 .\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"
 ```
 
-The script first confirms that the current branch is `main` and that
-`origin/main` is not ahead. After the integrity checkpoint and commit, it
-checks Git LFS, pushes explicitly to `origin/main`, and confirms that the local
-and remote commit IDs match.
+The script requires a named branch and confirms that its matching remote branch
+is not ahead. After the integrity checkpoint and commit, it checks Git LFS,
+pushes the current branch, and confirms that the local and remote commit IDs
+match. Both workstations must check out the same branch. Because `main` is
+protected, use a shared working branch until its pull request is approved and
+merged; the script does not bypass repository protection.
 
 Checkpointing verifies every output checksum, compacts manifests and SQLite,
 merges replay/run history, and creates the deterministic compressed database
@@ -141,7 +162,7 @@ least five sources per crawl and provide its report explicitly:
 ```
 
 The database stores the audit ID and report hash, while the validated report is
-copied into tracked `data/checkpoints/audit-evidence/` for the other PC. A
+copied into tracked `data/checkpoints/audit-evidence/` for the next PC. A
 mismatched signature, incomplete source, changed normalized match set, or
 ineligible crawl blocks the adoption and leaves historical state unchanged.
 
@@ -160,7 +181,7 @@ The localhost workbench hides all model evidence for representative holdout
 rows. The multilingual report identifies languages that still need samples and
 human-labeled keyword misses.
 
-Review recent shared runs or compare both hardware profiles with:
+Review recent shared runs or compare all hardware profiles with:
 
 ```powershell
 python main.py metrics --history --limit 20
@@ -173,9 +194,9 @@ Then resume with:
 .\scripts\run.ps1 -Profile 3080 run --all --strategy yield-aware --chunk-size 100
 ```
 
-Use profile `4090` on the other PC. Yield-aware mode re-ranks crawl chunks from
-smoothed historical matches per completed source while preserving exploration
-and a full rotation through ready crawls.
+Use profile `4090` or `5090` on the corresponding PC. Yield-aware mode re-ranks
+crawl chunks from smoothed historical matches per completed source while
+preserving exploration and a full rotation through ready crawls.
 
 `data/parquet/` is derived and remains local to each workstation. To rebuild it
 from the received checkpoint while safely dry-running the current filters, use:
@@ -227,7 +248,7 @@ only then choose evidence-backed stamping or a bounded selective recrawl.
 
 ## Conflict Rule
 
-If both PCs accidentally produced commits, stop. Do not merge two
-database archives or combine source shards manually. Keep both branches for
+If multiple PCs accidentally produced commits, stop. Do not merge their
+database archives or combine source shards manually. Keep every branch for
 inspection, choose the checkpoint from the PC that ran most recently, and
 resume serially from that checkpoint.

@@ -123,11 +123,13 @@ class HardwareProfile:
         return self.candidate_batch_size
 
 
-# Both machines currently use the proven seven-worker settings. Keeping the
-# profiles explicit makes future tuning a configuration change, not a code fork.
+# All workstations use conservative seven-worker settings until identical
+# real-source benchmarks prove a safe CPU-concurrency change. GPU-facing batch
+# sizes scale by card and remain protected by adaptive CUDA OOM recovery.
 HARDWARE_PROFILES = {
     "3080": HardwareProfile("3080", 7, 100, 800, 128, "fp32"),
     "4090": HardwareProfile("4090", 7, 150, 1_600, 256, "fp32"),
+    "5090": HardwareProfile("5090", 7, 200, 2_400, 512, "fp32"),
 }
 
 
@@ -145,6 +147,8 @@ def detect_hardware_profile() -> str:
 
         if torch.cuda.is_available():
             device_name = torch.cuda.get_device_name(0).lower()
+            if "5090" in device_name:
+                return "5090"
             if "4090" in device_name:
                 return "4090"
             if "3080" in device_name:

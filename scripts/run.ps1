@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("auto", "3080", "4090")]
+    [ValidateSet("auto", "3080", "4090", "5090")]
     [string]$Profile = "auto",
 
     [Parameter(ValueFromRemainingArguments = $true)]

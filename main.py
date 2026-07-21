@@ -345,6 +345,7 @@ def reset_data() -> None:
 
 def doctor(profile_name: str) -> int:
     profile = get_hardware_profile(profile_name)
+    errors = []
     print("Hometown XR environment check")
     print(f"  Python: {sys.version.split()[0]}")
     print(f"  Profile: {profile.name}")
@@ -359,13 +360,46 @@ def doctor(profile_name: str) -> int:
         import torch
 
         print(f"  PyTorch: {torch.__version__}")
-        print(f"  CUDA available: {torch.cuda.is_available()}")
-        if torch.cuda.is_available():
-            print(f"  GPU: {torch.cuda.get_device_name(0)}")
+        cuda_available = torch.cuda.is_available()
+        print(f"  CUDA available: {cuda_available}")
+        cuda_runtime = getattr(torch.version, "cuda", None)
+        print(f"  PyTorch CUDA runtime: {cuda_runtime or 'none'}")
+        if cuda_available:
+            gpu_name = torch.cuda.get_device_name(0)
+            capability = torch.cuda.get_device_capability(0)
+            print(f"  GPU: {gpu_name}")
+            print(f"  CUDA capability: {capability[0]}.{capability[1]}")
+        else:
+            gpu_name = ""
+            capability = (0, 0)
+
+        if profile.name == "5090":
+            if not cuda_available:
+                errors.append("The 5090 profile requires a CUDA-enabled PyTorch build.")
+            else:
+                if "5090" not in gpu_name:
+                    errors.append(
+                        f"The 5090 profile selected a different GPU: {gpu_name}."
+                    )
+                if capability < (12, 0):
+                    errors.append(
+                        "The detected GPU does not expose Blackwell compute capability 12.0."
+                    )
+            try:
+                cuda_version = tuple(int(part) for part in str(cuda_runtime).split(".")[:2])
+            except (TypeError, ValueError):
+                cuda_version = ()
+            if cuda_version < (12, 8):
+                errors.append(
+                    "RTX 5090 requires a PyTorch CUDA 12.8+ build; "
+                    f"found {cuda_runtime or 'none'}."
+                )
     except ImportError:
         print("  PyTorch: missing")
         return 1
-    return 0
+    for error in errors:
+        print(f"  ERROR: {error}")
+    return 1 if errors else 0
 
 
 def verify_output() -> int:

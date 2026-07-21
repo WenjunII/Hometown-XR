@@ -17,7 +17,7 @@ The preferred equivalent is:
 ```
 
 Both forms use the root `data/` checkpoint and output directories. The handoff
-restores the same compressed Git LFS database archive used by the 3080 PC.
+restores the same compressed Git LFS database archive used by the other PCs.
 
 Before resuming a checkpoint from the 3080 PC, receive and verify it with:
 

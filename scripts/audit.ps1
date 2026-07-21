@@ -2,7 +2,7 @@ param(
     [ValidateSet("plan", "run")]
     [string]$Action = "plan",
 
-    [ValidateSet("auto", "3080", "4090")]
+    [ValidateSet("auto", "3080", "4090", "5090")]
     [string]$Profile = "auto",
 
     [Nullable[int]]$Workers = $null,

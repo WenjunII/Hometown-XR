@@ -3,7 +3,7 @@ param(
     [ValidateSet("pull", "push")]
     [string]$Direction,
 
-    [ValidateSet("auto", "3080", "4090")]
+    [ValidateSet("auto", "3080", "4090", "5090")]
     [string]$Profile = "auto",
 
     [string]$Message = "chore: checkpoint extractor state",
