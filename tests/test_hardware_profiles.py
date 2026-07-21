@@ -65,3 +65,23 @@ def test_5090_doctor_rejects_legacy_cuda_runtime(monkeypatch, capsys):
 
     assert main.doctor("5090") == 1
     assert "requires a PyTorch CUDA 12.8+ build" in capsys.readouterr().out
+
+
+def test_legacy_doctor_rejects_wrong_gpu_profile(monkeypatch, capsys):
+    monkeypatch.setitem(
+        sys.modules,
+        "torch",
+        _fake_torch(
+            cuda_runtime="12.1",
+            name="NVIDIA GeForce RTX 4090",
+            capability=(8, 9),
+        ),
+    )
+    monkeypatch.setattr(
+        main,
+        "get_hardware_profile",
+        lambda _name: config.HARDWARE_PROFILES["3080"],
+    )
+
+    assert main.doctor("3080") == 1
+    assert "selected a different GPU" in capsys.readouterr().out

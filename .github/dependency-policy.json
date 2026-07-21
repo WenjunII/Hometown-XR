@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "migration_required",
+  "review_by": "2026-08-31",
+  "temporarily_allowed_packages": [
+    "torch",
+    "transformers"
+  ],
+  "reason": "The model stack and CUDA profiles require a coordinated, regression-tested upgrade.",
+  "required_validation": [
+    "Capture and compare the tracked model-regression baseline.",
+    "Meet the human-labeled evaluation and holdout minimums.",
+    "Run identical real-source benchmarks on the 3080, 4090, and 5090.",
+    "Confirm output digests and filter decisions before changing the shared locks."
+  ]
+}

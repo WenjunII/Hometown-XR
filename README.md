@@ -79,7 +79,7 @@ The normal 3080 receive/run/send cycle is:
 Use `4090` or `5090` in the first two commands on the corresponding PC. The
 receive command
 requires a clean worktree, performs a fast-forward-only Git pull plus Git LFS
-pull, then runs `doctor`, `status`, and `verify-output`. The send command works
+pull, then runs the strict full project-health check. The send command works
 from the current non-detached branch, checks that the matching remote branch is
 not ahead before checkpointing, and confirms the pushed commit against that
 remote branch. Both PCs must use the same branch. Because `main` is protected,
@@ -149,12 +149,17 @@ PyTorch and Transformers are excluded from automatic Dependabot version bumps.
 They are updated manually because the CUDA 12.1 and CUDA 13.0 locks must stay
 separate, and the pinned sentence-transformer constrains compatible
 Transformers releases. CI tests these profile relationships on every change.
+The current model stack has upstream security advisories and is covered by the
+dated migration policy in `.github/dependency-policy.json`; it is not treated as
+silently clean. CI runs `pip-audit`, rejects unlisted vulnerable packages, and
+fails when the exception expires. Complete the tracked model comparison, human
+evaluation minimums, and all three workstation benchmarks before upgrading the
+shared locks.
 
 Verify the environment and checkpoint:
 
 ```powershell
-.\.venv\Scripts\python.exe main.py doctor --profile 3080
-.\.venv\Scripts\python.exe main.py status
+.\scripts\health.ps1 -Profile 3080 -Full -Strict
 ```
 
 Start or resume one crawl:
@@ -277,6 +282,7 @@ resolve the project root regardless of the caller's current directory:
 | `.\scripts\setup.ps1 -Profile 3080` | Create/update the runtime and run diagnostics |
 | `.\scripts\setup.ps1 -Profile 3080 -Tune -Dev` | Also tune this PC and install development tools |
 | `.\scripts\run.ps1 -Profile 3080 run --all` | Start or resume using the selected hardware profile |
+| `.\scripts\health.ps1 -Profile 3080 -Full -Strict` | Check runtime, Git, checkpoint, dependencies, filters, evaluation, metrics, and output |
 | `.\scripts\benchmark.ps1 -Profile 3080` | Audit FP16 safety and write this PC's local override |
 | `.\scripts\benchmark.ps1 -Profile 3080 -Real -Sources 5 -WorkerCount 1,4,7` | Compare worker counts on identical isolated real sources |
 | `.\scripts\handoff.ps1 -Direction pull -Profile 3080` | Fast-forward, pull LFS data, and verify the received checkpoint |
@@ -285,11 +291,15 @@ resolve the project root regardless of the caller's current directory:
 | `.\scripts\audit.ps1` | Plan a deterministic, isolated historical-source audit |
 | `.\scripts\audit.ps1 -Action run -Profile 3080 -Apply` | Run the reviewed audit without changing historical state |
 | `.\scripts\evaluation.ps1` | Show annotation balance and the next evaluation action |
+| `.\scripts\evaluation.ps1 -Action plan` | Print balanced human-labeling queues without assigning labels |
 | `.\scripts\evaluation.ps1 -Action serve -OpenBrowser` | Open the local browser annotation workbench |
 | `.\scripts\evaluation.ps1 -Action multilingual` | Report language evidence, anchor gaps, and keyword misses |
 | `.\scripts\evaluation.ps1 -Action annotate -Prediction rejected -Limit 25` | Review a focused batch interactively |
 | `.\scripts\retry.ps1 -All -Category http_503 -Limit 25 -Apply` | Reset one bounded failure batch after a dry-run report |
 | `.\scripts\refresh-results.ps1` | Dry-run current filters and rebuild the local canonical dataset |
+| `.\scripts\model-validation.ps1 -Action capture -Profile 4090` | Capture an ignored model candidate on that GPU |
+| `.\scripts\model-validation.ps1 -Action compare -Profile 4090` | Compare that candidate with the tracked baseline |
+| `.\scripts\dependency-audit.ps1` | Validate profile pins and the dated vulnerability policy |
 | `.\scripts\checkpoint.ps1 -Message "checkpoint: hand off crawler state"` | Verify, compact, commit, push, and confirm a checkpoint |
 | `.\scripts\test.ps1` | Run tests, lint, and compilation checks |
 
@@ -303,6 +313,7 @@ The underlying Python CLI remains available directly:
 | `python main.py run --all --strategy yield-aware --chunk-size 100` | Prioritize smoothed high-yield crawls while retaining exploration and coverage |
 | `python main.py run --limit 5` | Process at most five ready sources globally |
 | `python main.py status` | Show checkpoint progress |
+| `python main.py health --profile 3080 --full --strict` | Fail on unsafe runtime, Git, database, dependency, or output state |
 | `python main.py metrics` | Show concise latest rates, funnel, failures, resources, and ETA |
 | `python main.py metrics --history --limit 20` | Show compact recent run history |
 | `python main.py metrics --compare-profiles` | Compare aggregate workstation throughput/resources |
@@ -325,6 +336,7 @@ The underlying Python CLI remains available directly:
 | `python main.py audit plan --per-crawl 2` | Select matched and zero-match completed sources without changing state |
 | `python main.py audit run --per-crawl 2 --profile 3080 --yes` | Run the selection in an isolated database/output tree |
 | `python main.py evaluation status` | Show sample balance, labels, readiness, and the next action |
+| `python main.py evaluation plan` | Build balanced human-labeling steps without synthesizing labels |
 | `python main.py evaluation sample` | Build a real-text annotation sample |
 | `python main.py evaluation annotate` | Label samples interactively |
 | `python main.py evaluation annotate --split holdout --quick` | Label a balanced holdout queue with model categories accepted |
@@ -333,6 +345,8 @@ The underlying Python CLI remains available directly:
 | `python main.py evaluation undo --sample-id ID` | Restore the previous label and annotation metadata |
 | `python main.py evaluation report` | Compute precision, recall, F1, and tuning |
 | `python main.py evaluation replay` | Compact local decisions into the shared replay reservoir |
+| `python main.py model-validation capture --profile 3080` | Capture the tracked semantic-output baseline |
+| `python main.py model-validation compare --candidate PATH` | Enforce model-output regression limits |
 | `python main.py reset` | Delete output, derivatives, and progress |
 
 Use `recover --minutes 0` only after confirming no crawler is running.
@@ -539,12 +553,46 @@ validated report is copied to `data/checkpoints/audit-evidence/` for the next Gi
 handoff. Existing output and checkpoint rows remain untouched when evidence is
 missing or inconsistent.
 
+## Model And Dependency Validation
+
+`data/evaluation/model-baseline.json` is the tracked 400-sample semantic model
+baseline. It contains stable sample IDs, scores, selected concept anchors, and
+threshold decisions, but no source paragraphs. After changing PyTorch,
+Transformers, Sentence Transformers, CUDA, model files, or precision behavior,
+capture an ignored candidate on each workstation and compare it:
+
+```powershell
+.\scripts\model-validation.ps1 -Action capture -Profile 3080
+.\scripts\model-validation.ps1 -Action compare -Profile 3080
+```
+
+Repeat with `4090` and `5090` on those PCs. The comparison requires every sample
+to be present, maximum score drift at most `0.005`, concept agreement at least
+`0.99`, and identical threshold decisions. To deliberately replace the tracked
+baseline after an approved migration, use:
+
+```powershell
+.\scripts\model-validation.ps1 -Action capture -Profile 3080 -AsBaseline
+```
+
+Review the diff and rerun all comparisons.
+
+Run the dependency contract and advisory gate with:
+
+```powershell
+.\scripts\dependency-audit.ps1
+```
+
+The exception review date is a deadline for migration work, not a claim that the
+listed advisories are harmless.
+
 ## Evaluation
 
 Build an unlabeled sample from real committed records and sampled live rejects:
 
 ```powershell
 .\scripts\evaluation.ps1
+.\scripts\evaluation.ps1 -Action plan
 .\scripts\evaluation.ps1 -Action sample -Size 400
 .\scripts\evaluation.ps1 -Action annotate -Prediction rejected -Limit 25
 .\scripts\evaluation.ps1 -Action annotate -Prediction accepted -Limit 75
@@ -560,7 +608,9 @@ result instead of a traceback when no labels exist. Sampling is deterministic
 and language-stratified. Representative benchmark rows receive a stable 80/20
 tuning/holdout split; uncertain rows are used only for tuning. Existing labels,
 notes, annotator, timestamp, and label history are kept when a sample is rebuilt.
-Annotation queues rotate across prediction and language strata. `-Language`,
+The plan action reserves balanced accepted/rejected tuning and holdout quotas,
+reports missing queues, and never assigns a label; labels require human
+judgment. Annotation queues rotate across prediction and language strata. `-Language`,
 `-Prediction`, `-Split`, `-SampleId`, `-Relabel`, and `-Quick` support focused
 work, while `-Action undo` restores the previous label.
 
@@ -616,9 +666,9 @@ multilingual filtering, real WET parsing, spawned Windows-compatible
 orchestration, representative sampling weights, tuning/holdout isolation,
 audit-gated signature adoption, real-workload recommendations,
 canonical/provenance deduplication, and Parquet export. GitHub
-Actions runs lint, tests, compilation, CLI smoke checks, and PowerShell parsing
-on both Windows and Ubuntu without
-downloading GPU models or Git LFS data.
+Actions validates dependency-profile pins and the dated vulnerability policy,
+then runs lint, tests, compilation, CLI smoke checks, and PowerShell parsing on
+both Windows and Ubuntu without downloading GPU models or Git LFS data.
 
 ## Project Structure
 
@@ -639,6 +689,10 @@ evaluation.py           weighted sampling, annotation history, tuning, and holdo
 metrics.py              funnel, failures, resources, rates, history, and ETA
 failure_analysis.py     stable operational failure categories
 benchmark.py            synthetic precision and isolated real-source benchmarks
+dependency_profiles.py  cross-profile lock and installed-package contract
+dependency_audit.py     pip-audit policy enforcement with an expiry date
+model_regression.py     semantic score/concept/threshold snapshots and comparison
+project_health.py       consolidated workstation and handoff readiness
 dedupe.py               disk-backed exact and SimHash duplicate index
 parquet_export.py       staged partitioned analytical export
 story_reconstruction.py adjacent passages and explainable place/time metadata

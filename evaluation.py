@@ -907,6 +907,80 @@ def evaluation_status(
     }
 
 
+def evaluation_plan(
+    annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
+) -> dict:
+    """Build a balanced human-labeling plan without assigning any labels."""
+    path = Path(annotation_path)
+    rows = [_enrich_for_active_learning(row) for row in _read_jsonl(path)]
+    holdout_each = max(1, EVALUATION_MIN_HOLDOUT_LABELS // 2)
+    tuning_total = max(0, EVALUATION_MIN_BASELINE_LABELS - holdout_each * 2)
+    tuning_rejected = tuning_total // 2
+    tuning_accepted = tuning_total - tuning_rejected
+    quotas = [
+        ("holdout", False, holdout_each),
+        ("holdout", True, holdout_each),
+        ("tuning", False, tuning_rejected),
+        ("tuning", True, tuning_accepted),
+    ]
+    steps = []
+    total_remaining = 0
+    insufficient = []
+    for split, accepted, target in quotas:
+        matching = [
+            row
+            for row in rows
+            if row.get("evaluation_split", "tuning") == split
+            and bool(row.get("predicted_accept")) is accepted
+        ]
+        labeled = sum(row.get("label") in {"positive", "negative"} for row in matching)
+        available = sum(row.get("label") not in {"positive", "negative"} for row in matching)
+        remaining = max(0, target - labeled)
+        planned = min(remaining, available)
+        total_remaining += remaining
+        prediction = "accepted" if accepted else "rejected"
+        if planned:
+            steps.append(
+                {
+                    "split": split,
+                    "prediction": prediction,
+                    "target": target,
+                    "labeled": labeled,
+                    "available": available,
+                    "planned": planned,
+                    "command": (
+                        "python main.py evaluation annotate "
+                        f"--split {split} --prediction {prediction} "
+                        f"--limit {planned} --quick"
+                    ),
+                }
+            )
+        if available < remaining:
+            insufficient.append(
+                {
+                    "split": split,
+                    "prediction": prediction,
+                    "needed": remaining,
+                    "available": available,
+                }
+            )
+    status = evaluation_status(annotation_path=path)
+    return {
+        "schema_version": 1,
+        "annotation_path": str(path),
+        "requires_human_judgment": True,
+        "automatic_labeling_allowed": False,
+        "target_labels": EVALUATION_MIN_BASELINE_LABELS,
+        "target_holdout_labels": EVALUATION_MIN_HOLDOUT_LABELS,
+        "remaining_to_target": total_remaining,
+        "ready": status["baseline"]["ready"] and status["baseline"]["holdout_ready"],
+        "steps": steps,
+        "insufficient_queues": insufficient,
+        "browser_command": "python main.py evaluation serve --open-browser",
+        "next_actions": status["next_actions"],
+    }
+
+
 def annotate(
     annotation_path: str | Path = EVALUATION_DIR / "annotations.jsonl",
     language: str | None = None,

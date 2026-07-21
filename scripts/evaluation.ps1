@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("status", "sample", "annotate", "report", "replay", "undo", "multilingual", "serve")]
+    [ValidateSet("status", "plan", "sample", "annotate", "report", "replay", "undo", "multilingual", "serve")]
     [string]$Action = "status",
 
     [ValidateRange(1, 1000000)]
